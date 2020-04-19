@@ -338,8 +338,7 @@ func (sm *subscriptionManager) cancelAndDeleteFolderBranchPoller(
 }
 
 func (sm *subscriptionManager) pollOnFolderBranchForSubscribePathRequest(
-	ctx context.Context, loggingCtx context.Context,
-	req subscribePathRequest, parsedPath *parsedPath) {
+	ctx context.Context, req subscribePathRequest, parsedPath *parsedPath) {
 	ticker := time.NewTicker(folderBranchPollingInterval)
 	for {
 		select {
@@ -372,7 +371,7 @@ func (sm *subscriptionManager) pollOnFolderBranchForSubscribePathRequest(
 
 			err = sm.subscribePathWithFolderBranchLocked(req, parsedPath, fb)
 			if err != nil {
-				sm.log.CErrorf(loggingCtx,
+				sm.log.CErrorf(ctx,
 					"subscribePathWithFolderBranchLocked sid=%s err=%v", req.sid, err)
 			}
 
@@ -390,11 +389,10 @@ func (sm *subscriptionManager) pollOnFolderBranchForSubscribePathRequest(
 }
 
 func (sm *subscriptionManager) subscribePathWithoutFolderBranchLocked(
-	loggingCtx context.Context, req subscribePathRequest, parsedPath *parsedPath) {
+	req subscribePathRequest, parsedPath *parsedPath) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sm.folderBranchPollerCancelers[req.sid] = cancel
-	go sm.pollOnFolderBranchForSubscribePathRequest(
-		ctx, loggingCtx, req, parsedPath)
+	go sm.pollOnFolderBranchForSubscribePathRequest(ctx, req, parsedPath)
 }
 
 // SubscribePath implements the SubscriptionManager interface.
@@ -421,7 +419,7 @@ func (sm *subscriptionManager) SubscribePath(ctx context.Context,
 	if fb != (data.FolderBranch{}) {
 		return sm.subscribePathWithFolderBranchLocked(req, parsedPath, fb)
 	}
-	sm.subscribePathWithoutFolderBranchLocked(ctx, req, parsedPath)
+	sm.subscribePathWithoutFolderBranchLocked(req, parsedPath)
 	return nil
 }
 
