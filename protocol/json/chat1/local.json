@@ -1245,6 +1245,15 @@
           "name": "botUID",
           "mpackkey": "b",
           "jsonkey": "b"
+        },
+        {
+          "type": [
+            null,
+            "stellar1.TransactionID"
+          ],
+          "name": "txID",
+          "mpackkey": "t",
+          "jsonkey": "t"
         }
       ]
     },
