@@ -643,18 +643,28 @@ protocol teams {
   }
 
   record AnnotatedTeamInvite {
-    // metadata is taken straight from the protocol
+    // metadata is taken straight from TeamSigChainState
     TeamInviteMetadata inviteMetadata;
 
     TeamInviteDisplayName displayName;
     string inviterUsername;
-    UserVersion inviteeUv;
     string teamName;
 
-    // null for multiuse invites
-    union { null, TeamMemberStatus } status;
+  }
 
-    array<AnnotatedTeamUsedInviteLogPoint> annotatedUsedInvites;
+    /* // nil value for multiuse invites (or if the invite has not been used yet) */
+    /* UserVersion inviteeUv; */
+
+    /* // null for multiuse invites */
+    /* union { null, TeamMemberStatus } status; */
+
+    /* array<AnnotatedTeamUsedInviteLogPoint> annotatedUsedInvites; */
+
+    /* // only possibly true for invitelinks */
+    /* boolean isTimeExpired */
+  variant AnnotatedTeamInviteExt switch (TeamInviteCategory c) {
+    case KEYBASE: UserVersion;
+    default: void;
   }
 
   record TeamEncryptedKBFSKeyset {
@@ -1465,7 +1475,7 @@ protocol teams {
     array<string> malformed;
   }
 
-  record InviteLinkDetails {
+  record InviteLinkDetails{
       TeamInviteID inviteID;
       boolean inviterResetOrDel;
       UID inviterUID;

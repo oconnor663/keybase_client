@@ -1390,26 +1390,31 @@
           "name": "inviterUsername"
         },
         {
-          "type": "UserVersion",
-          "name": "inviteeUv"
-        },
-        {
           "type": "string",
           "name": "teamName"
-        },
+        }
+      ]
+    },
+    {
+      "type": "variant",
+      "name": "AnnotatedTeamInviteExt",
+      "switch": {
+        "type": "TeamInviteCategory",
+        "name": "c"
+      },
+      "cases": [
         {
-          "type": [
-            null,
-            "TeamMemberStatus"
-          ],
-          "name": "status"
-        },
-        {
-          "type": {
-            "type": "array",
-            "items": "AnnotatedTeamUsedInviteLogPoint"
+          "label": {
+            "name": "KEYBASE",
+            "def": false
           },
-          "name": "annotatedUsedInvites"
+          "body": "UserVersion"
+        },
+        {
+          "label": {
+            "def": true
+          },
+          "body": null
         }
       ]
     },
