@@ -1767,10 +1767,11 @@ func (o TeamInvite) DeepCopy() TeamInvite {
 }
 
 type AnnotatedTeamInvite struct {
-	InviteMetadata  TeamInviteMetadata    `codec:"inviteMetadata" json:"inviteMetadata"`
-	DisplayName     TeamInviteDisplayName `codec:"displayName" json:"displayName"`
-	InviterUsername string                `codec:"inviterUsername" json:"inviterUsername"`
-	TeamName        string                `codec:"teamName" json:"teamName"`
+	InviteMetadata  TeamInviteMetadata     `codec:"inviteMetadata" json:"inviteMetadata"`
+	DisplayName     TeamInviteDisplayName  `codec:"displayName" json:"displayName"`
+	InviterUsername string                 `codec:"inviterUsername" json:"inviterUsername"`
+	TeamName        string                 `codec:"teamName" json:"teamName"`
+	InviteExt       AnnotatedTeamInviteExt `codec:"inviteExt" json:"inviteExt"`
 }
 
 func (o AnnotatedTeamInvite) DeepCopy() AnnotatedTeamInvite {
@@ -1779,12 +1780,56 @@ func (o AnnotatedTeamInvite) DeepCopy() AnnotatedTeamInvite {
 		DisplayName:     o.DisplayName.DeepCopy(),
 		InviterUsername: o.InviterUsername,
 		TeamName:        o.TeamName,
+		InviteExt:       o.InviteExt.DeepCopy(),
+	}
+}
+
+type KeybaseInviteExt struct {
+	InviteeUv UserVersion       `codec:"inviteeUv" json:"inviteeUv"`
+	Status    *TeamMemberStatus `codec:"status,omitempty" json:"status,omitempty"`
+}
+
+func (o KeybaseInviteExt) DeepCopy() KeybaseInviteExt {
+	return KeybaseInviteExt{
+		InviteeUv: o.InviteeUv.DeepCopy(),
+		Status: (func(x *TeamMemberStatus) *TeamMemberStatus {
+			if x == nil {
+				return nil
+			}
+			tmp := (*x).DeepCopy()
+			return &tmp
+		})(o.Status),
+	}
+}
+
+type InvitelinkInviteExt struct {
+	IsExpired            bool                              `codec:"isExpired" json:"isExpired"`
+	IsUsedUp             bool                              `codec:"isUsedUp" json:"isUsedUp"`
+	AnnotatedUsedInvites []AnnotatedTeamUsedInviteLogPoint `codec:"annotatedUsedInvites" json:"annotatedUsedInvites"`
+}
+
+func (o InvitelinkInviteExt) DeepCopy() InvitelinkInviteExt {
+	return InvitelinkInviteExt{
+		IsExpired: o.IsExpired,
+		IsUsedUp:  o.IsUsedUp,
+		AnnotatedUsedInvites: (func(x []AnnotatedTeamUsedInviteLogPoint) []AnnotatedTeamUsedInviteLogPoint {
+			if x == nil {
+				return nil
+			}
+			ret := make([]AnnotatedTeamUsedInviteLogPoint, len(x))
+			for i, v := range x {
+				vCopy := v.DeepCopy()
+				ret[i] = vCopy
+			}
+			return ret
+		})(o.AnnotatedUsedInvites),
 	}
 }
 
 type AnnotatedTeamInviteExt struct {
-	C__       TeamInviteCategory `codec:"c" json:"c"`
-	Keybase__ *UserVersion       `codec:"keybase,omitempty" json:"keybase,omitempty"`
+	C__          TeamInviteCategory   `codec:"c" json:"c"`
+	Keybase__    *KeybaseInviteExt    `codec:"keybase,omitempty" json:"keybase,omitempty"`
+	Invitelink__ *InvitelinkInviteExt `codec:"invitelink,omitempty" json:"invitelink,omitempty"`
 }
 
 func (o *AnnotatedTeamInviteExt) C() (ret TeamInviteCategory, err error) {
@@ -1794,11 +1839,16 @@ func (o *AnnotatedTeamInviteExt) C() (ret TeamInviteCategory, err error) {
 			err = errors.New("unexpected nil value for Keybase__")
 			return ret, err
 		}
+	case TeamInviteCategory_INVITELINK:
+		if o.Invitelink__ == nil {
+			err = errors.New("unexpected nil value for Invitelink__")
+			return ret, err
+		}
 	}
 	return o.C__, nil
 }
 
-func (o AnnotatedTeamInviteExt) Keybase() (res UserVersion) {
+func (o AnnotatedTeamInviteExt) Keybase() (res KeybaseInviteExt) {
 	if o.C__ != TeamInviteCategory_KEYBASE {
 		panic("wrong case accessed")
 	}
@@ -1808,10 +1858,27 @@ func (o AnnotatedTeamInviteExt) Keybase() (res UserVersion) {
 	return *o.Keybase__
 }
 
-func NewAnnotatedTeamInviteExtWithKeybase(v UserVersion) AnnotatedTeamInviteExt {
+func (o AnnotatedTeamInviteExt) Invitelink() (res InvitelinkInviteExt) {
+	if o.C__ != TeamInviteCategory_INVITELINK {
+		panic("wrong case accessed")
+	}
+	if o.Invitelink__ == nil {
+		return
+	}
+	return *o.Invitelink__
+}
+
+func NewAnnotatedTeamInviteExtWithKeybase(v KeybaseInviteExt) AnnotatedTeamInviteExt {
 	return AnnotatedTeamInviteExt{
 		C__:       TeamInviteCategory_KEYBASE,
 		Keybase__: &v,
+	}
+}
+
+func NewAnnotatedTeamInviteExtWithInvitelink(v InvitelinkInviteExt) AnnotatedTeamInviteExt {
+	return AnnotatedTeamInviteExt{
+		C__:          TeamInviteCategory_INVITELINK,
+		Invitelink__: &v,
 	}
 }
 
@@ -1824,13 +1891,20 @@ func NewAnnotatedTeamInviteExtDefault(c TeamInviteCategory) AnnotatedTeamInviteE
 func (o AnnotatedTeamInviteExt) DeepCopy() AnnotatedTeamInviteExt {
 	return AnnotatedTeamInviteExt{
 		C__: o.C__.DeepCopy(),
-		Keybase__: (func(x *UserVersion) *UserVersion {
+		Keybase__: (func(x *KeybaseInviteExt) *KeybaseInviteExt {
 			if x == nil {
 				return nil
 			}
 			tmp := (*x).DeepCopy()
 			return &tmp
 		})(o.Keybase__),
+		Invitelink__: (func(x *InvitelinkInviteExt) *InvitelinkInviteExt {
+			if x == nil {
+				return nil
+			}
+			tmp := (*x).DeepCopy()
+			return &tmp
+		})(o.Invitelink__),
 	}
 }
 

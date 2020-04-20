@@ -650,20 +650,22 @@ protocol teams {
     string inviterUsername;
     string teamName;
 
+    // inviteExt stores additional annotation based on the invite type.
+    AnnotatedTeamInviteExt inviteExt;
   }
-
-    /* // nil value for multiuse invites (or if the invite has not been used yet) */
-    /* UserVersion inviteeUv; */
-
-    /* // null for multiuse invites */
-    /* union { null, TeamMemberStatus } status; */
-
-    /* array<AnnotatedTeamUsedInviteLogPoint> annotatedUsedInvites; */
-
-    /* // only possibly true for invitelinks */
-    /* boolean isTimeExpired */
+  record KeybaseInviteExt {
+    UserVersion inviteeUv;
+    union { null, TeamMemberStatus } status;
+  }
+  record InvitelinkInviteExt {
+    boolean isExpired;
+    boolean isUsedUp;
+    // Annotated version of AnnotatedTeamInvite.InviteMetadata.UsedInvites
+    array<AnnotatedTeamUsedInviteLogPoint> annotatedUsedInvites;
+  }
   variant AnnotatedTeamInviteExt switch (TeamInviteCategory c) {
-    case KEYBASE: UserVersion;
+    case KEYBASE: KeybaseInviteExt;
+    case INVITELINK: InvitelinkInviteExt;
     default: void;
   }
 

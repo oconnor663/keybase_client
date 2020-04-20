@@ -1392,6 +1392,48 @@
         {
           "type": "string",
           "name": "teamName"
+        },
+        {
+          "type": "AnnotatedTeamInviteExt",
+          "name": "inviteExt"
+        }
+      ]
+    },
+    {
+      "type": "record",
+      "name": "KeybaseInviteExt",
+      "fields": [
+        {
+          "type": "UserVersion",
+          "name": "inviteeUv"
+        },
+        {
+          "type": [
+            null,
+            "TeamMemberStatus"
+          ],
+          "name": "status"
+        }
+      ]
+    },
+    {
+      "type": "record",
+      "name": "InvitelinkInviteExt",
+      "fields": [
+        {
+          "type": "boolean",
+          "name": "isExpired"
+        },
+        {
+          "type": "boolean",
+          "name": "isUsedUp"
+        },
+        {
+          "type": {
+            "type": "array",
+            "items": "AnnotatedTeamUsedInviteLogPoint"
+          },
+          "name": "annotatedUsedInvites"
         }
       ]
     },
@@ -1408,7 +1450,14 @@
             "name": "KEYBASE",
             "def": false
           },
-          "body": "UserVersion"
+          "body": "KeybaseInviteExt"
+        },
+        {
+          "label": {
+            "name": "INVITELINK",
+            "def": false
+          },
+          "body": "InvitelinkInviteExt"
         },
         {
           "label": {
