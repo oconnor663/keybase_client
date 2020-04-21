@@ -658,9 +658,19 @@ protocol teams {
     union { null, TeamMemberStatus } status;
   }
   record InvitelinkInviteExt {
+    // isExpired should be used to infer expiration because the service's client's clock may
+    // differ from the client's clock.
+    // NOTE: not the same as an invite being cancelled, which is provided by
+    //  TeamInviteMetadata.Status.
     boolean isExpired;
+    // e.g. "Expired 5 days ago"; "Expires in 2 hours"
+    string expirationDeltaFormatted;
+    // isUsedUp is equivalent to TeamInvite.maxUses <= len(TeamInviteMetadata.UsedInvites);
+    // provided for consistency with isExpired.
+    // NOTE: not the same as an invite being cancelled, which is provided by
+    //  TeamInviteMetadata.Status.
     boolean isUsedUp;
-    // Annotated version of AnnotatedTeamInvite.InviteMetadata.UsedInvites
+    // Annotated version of InviteMetadata.UsedInvites
     array<AnnotatedTeamUsedInviteLogPoint> annotatedUsedInvites;
   }
   variant AnnotatedTeamInviteExt switch (TeamInviteCategory c) {
@@ -1336,10 +1346,6 @@ protocol teams {
 
   // A user can hope for success if and only if they are a member of
   // the team or an admin of any of its ancestors.
-  TeamDetails teamGetByID(int sessionID, TeamID id);
-
-  // A user can hope for success if and only if they are a member of
-  // the team or an admin of any of its ancestors.
   TeamDetails teamGet(int sessionID, string name);
 
   // Get the members of the team
@@ -1697,6 +1703,9 @@ protocol teams {
   record AnnotatedTeam {
     TeamID teamID;
     string name;
+
+    // NOTE: Because these subteams are unverified, they should *not* be used to infer team
+    // memberships.
     SubteamListResult transitiveSubteamsUnverified;
 
     array<AnnotatedTeamMemberDetails> members;
@@ -1705,7 +1714,6 @@ protocol teams {
 
     boolean tarsDisabled;
     TeamSettings settings;
-    TeamShowcase showcase;
   }
 
   AnnotatedTeam getAnnotatedTeam(TeamID teamID);

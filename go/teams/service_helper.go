@@ -45,81 +45,85 @@ func GetAnnotatedTeam(ctx context.Context, g *libkb.GlobalContext, id keybase1.T
 	if err != nil {
 		return res, err
 	}
-	det, err := details(mctx, t, tracer)
+
+	members, err = MembersDetails(ctx, g, t)
 	if err != nil {
 		return res, err
 	}
+	return keybase1.AnnotatedTeam{
+		Members: members,
+	}, nil
 
-	transitiveSubteamsUnverified, err := ListSubteamsUnverified(mctx, t.Data.Name)
-	if err != nil {
-		return res, err
-	}
+	// transitiveSubteamsUnverified, err := ListSubteamsUnverified(mctx, t.Data.Name)
+	// if err != nil {
+	// 	return res, err
+	// }
 
-	var members []keybase1.AnnotatedTeamMemberDetails
-	for _, details := range det.Members.Owners {
-		members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_OWNER})
-	}
-	for _, details := range det.Members.Admins {
-		members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_ADMIN})
-	}
-	for _, details := range det.Members.Writers {
-		members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_WRITER})
-	}
-	for _, details := range det.Members.Readers {
-		members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_READER})
-	}
-	for _, details := range det.Members.Bots {
-		members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_BOT})
-	}
-	for _, details := range det.Members.RestrictedBots {
-		members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_RESTRICTEDBOT})
-	}
+	// var members []keybase1.AnnotatedTeamMemberDetails
+	// for _, details := range det.Members.Owners {
+	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_OWNER})
+	// }
+	// for _, details := range det.Members.Admins {
+	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_ADMIN})
+	// }
+	// for _, details := range det.Members.Writers {
+	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_WRITER})
+	// }
+	// for _, details := range det.Members.Readers {
+	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_READER})
+	// }
+	// for _, details := range det.Members.Bots {
+	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_BOT})
+	// }
+	// for _, details := range det.Members.RestrictedBots {
+	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_RESTRICTEDBOT})
+	// }
 
-	var invites []keybase1.AnnotatedTeamInvite
-	for _, invite := range det.AnnotatedActiveInvites {
-		invites = append(invites, invite)
-	}
+	// var invites []keybase1.AnnotatedTeamInvite
+	// for _, invite := range det.AnnotatedActiveInvites {
+	// 	invites = append(invites, invite)
+	// }
 
-	name := t.Data.Name.String()
-	myRole, err := t.myRole(ctx)
-	var isAdmin bool
-	if err != nil {
-		g.Log.CDebugf(ctx, "Error getting role; skipping getting requests: %v", err)
-	} else {
-		isAdmin = myRole.IsOrAbove(keybase1.TeamRole_ADMIN)
-	}
-	var joinRequests []keybase1.TeamJoinRequest
-	var tarsDisabled bool
-	if isAdmin {
-		joinRequests, err = ListRequests(ctx, g, &name)
-		if err != nil {
-			return res, err
-		}
-		tarsDisabled, err = GetTarsDisabled(ctx, g, id)
-		if err != nil {
-			return res, err
-		}
-	}
+	// name := t.Data.Name.String()
+	// myRole, err := t.myRole(ctx)
+	// var isAdmin bool
+	// if err != nil {
+	// 	g.Log.CDebugf(ctx, "Error getting role; skipping getting requests: %v", err)
+	// } else {
+	// 	isAdmin = myRole.IsOrAbove(keybase1.TeamRole_ADMIN)
+	// }
+	// var joinRequests []keybase1.TeamJoinRequest
+	// var tarsDisabled bool
+	// if isAdmin {
+	// 	joinRequests, err = ListRequests(ctx, g, &name)
+	// 	if err != nil {
+	// 		return res, err
+	// 	}
+	// 	tarsDisabled, err = GetTarsDisabled(ctx, g, id)
+	// 	if err != nil {
+	// 		return res, err
+	// 	}
+	// }
 
-	showcase, err := GetTeamShowcase(ctx, g, id)
-	if err != nil {
-		return res, err
-	}
+	// showcase, err := GetTeamShowcase(ctx, g, id)
+	// if err != nil {
+	// 	return res, err
+	// }
 
-	res = keybase1.AnnotatedTeam{
-		TeamID:                       id,
-		Name:                         t.Data.Name.String(),
-		TransitiveSubteamsUnverified: transitiveSubteamsUnverified,
+	// res = keybase1.AnnotatedTeam{
+	// 	TeamID:                       id,
+	// 	Name:                         t.Data.Name.String(),
+	// 	TransitiveSubteamsUnverified: transitiveSubteamsUnverified,
 
-		Members:      members,
-		Invites:      invites,
-		JoinRequests: joinRequests,
+	// 	Members:      members,
+	// 	Invites:      invites,
+	// 	JoinRequests: joinRequests,
 
-		TarsDisabled: tarsDisabled,
-		Settings:     det.Settings,
-		Showcase:     showcase,
-	}
-	return res, nil
+	// 	TarsDisabled: tarsDisabled,
+	// 	Settings:     det.Settings,
+	// 	Showcase:     showcase,
+	// }
+	// return res, nil
 }
 
 // DetailsByID returns TeamDetails for team name. Keybase-type invites are
@@ -160,10 +164,10 @@ func Details(ctx context.Context, g *libkb.GlobalContext, name string) (res keyb
 func details(mctx libkb.MetaContext, t *Team, tracer profiling.TimeTracer) (res keybase1.TeamDetails, err error) {
 	res.KeyGeneration = t.Generation()
 	tracer.Stage("members")
-	res.Members, err = MembersDetails(mctx.Ctx(), mctx.G(), t)
-	if err != nil {
-		return res, err
-	}
+	// res.Members, err = MembersDetails(mctx.Ctx(), mctx.G(), t)
+	// if err != nil {
+	// 	return res, err
+	// }
 
 	tracer.Stage("invites")
 	res.AnnotatedActiveInvites, err = AnnotateInvitesNoPUKless(mctx, t, &res.Members)
@@ -255,38 +259,43 @@ func membersHideInactiveDuplicates(ctx context.Context, g *libkb.GlobalContext, 
 	}
 }
 
-func MembersDetails(ctx context.Context, g *libkb.GlobalContext, t *Team) (ret keybase1.TeamMembersDetails, err error) {
+func MembersDetails(ctx context.Context, g *libkb.GlobalContext, t *Team) (ret []keybase1.TeamMemberDetails, err error) {
 	mctx := libkb.NewMetaContext(ctx, g)
-
 	m, err := t.Members()
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
 
-	ret.Owners, err = userVersionsToDetails(mctx, m.Owners, t)
+	owners, err := userVersionsToDetails(mctx, m.Owners, t)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-	ret.Admins, err = userVersionsToDetails(mctx, m.Admins, t)
+	admins, err := userVersionsToDetails(mctx, m.Admins, t)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-	ret.Writers, err = userVersionsToDetails(mctx, m.Writers, t)
+	writers, err := userVersionsToDetails(mctx, m.Writers, t)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-	ret.Readers, err = userVersionsToDetails(mctx, m.Readers, t)
+	readers, err := userVersionsToDetails(mctx, m.Readers, t)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-	ret.Bots, err = userVersionsToDetails(mctx, m.Bots, t)
+	bots, err := userVersionsToDetails(mctx, m.Bots, t)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
-	ret.RestrictedBots, err = userVersionsToDetails(mctx, m.RestrictedBots, t)
+	restrictedBots, err := userVersionsToDetails(mctx, m.RestrictedBots, t)
 	if err != nil {
-		return ret, err
+		return nil, err
 	}
+	ret = append(ret, owners...)
+	ret = append(ret, admins...)
+	ret = append(ret, writers...)
+	ret = append(ret, readers...)
+	ret = append(ret, bots...)
+	ret = append(ret, restrictedBots...)
 	return ret, nil
 }
 

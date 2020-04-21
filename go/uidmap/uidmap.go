@@ -223,6 +223,7 @@ func (u *UIDMap) lookupFromServerBatch(ctx context.Context, g libkb.UIDMapperCon
 			if !u.CheckUIDAgainstUsername(uid, nun) {
 				g.GetLog().CWarningf(ctx, "Server returned bad UID -> username mapping: %s -> %s", uid, nun)
 			} else {
+				g.GetLog().CWarningf(ctx, "@@@@@@@@@ STATUS GOT %s=%#v", nun, row.Status)
 				ret[i] = libkb.UsernamePackage{
 					NormalizedUsername: nun,
 					FullName: &keybase1.FullNamePackage{
