@@ -315,10 +315,7 @@ func (t *teamAPIHandler) listTeamMemberships(ctx context.Context, c Call, w io.W
 		return t.encodeErr(c, err, w)
 	}
 
-	arg := keybase1.TeamGetArg{
-		Name: opts.Team,
-	}
-	details, err := t.cli.TeamGet(ctx, arg)
+	details, err := t.cli.GetAnnotatedTeamByName(ctx, opts.Team)
 	if err != nil {
 		return t.encodeErr(c, err, w)
 	}

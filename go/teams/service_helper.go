@@ -30,9 +30,9 @@ func LoadTeamPlusApplicationKeys(ctx context.Context, g *libkb.GlobalContext, id
 	return team.ExportToTeamPlusApplicationKeys(ctx, keybase1.Time(0), application, includeKBFSKeys)
 }
 
-// GetAnnotatedTeam bundles up various data, both on and off chain, about a
-// specific team for consumption by the GUI. In particular, it supplies almost all of the information on a team's
-// subpage in the Teams tab
+// GetAnnotatedTeam bundles up various data, both on and off chain, about a specific team for
+// consumption by the UI. In particular, it supplies almost all of the information on a team's
+// subpage in the Teams tab.
 func GetAnnotatedTeam(ctx context.Context, g *libkb.GlobalContext, teamID keybase1.TeamID) (res keybase1.AnnotatedTeam, err error) {
 	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
 	defer tracer.Finish()
@@ -86,7 +86,20 @@ func GetAnnotatedTeam(ctx context.Context, g *libkb.GlobalContext, teamID keybas
 		Settings:                     t.Settings(),
 		JoinRequests:                 maybeJoinRequests,
 		TarsDisabled:                 maybeTARsDisabled,
+		KeyGeneration:                t.Generation(),
 	}, nil
+}
+
+func GetAnnotatedTeamByName(ctx context.Context, g *libkb.GlobalContext, teamName string) (res keybase1.AnnotatedTeam, err error) {
+	nameParsed, err := keybase1.TeamNameFromString(teamName)
+	if err != nil {
+		return res, err
+	}
+	teamID, err := ResolveNameToID(ctx, g, nameParsed)
+	if err != nil {
+		return res, err
+	}
+	return GetAnnotatedTeam(ctx, g, teamID)
 }
 
 // DetailsByID returns TeamDetails for team name. Keybase-type invites are

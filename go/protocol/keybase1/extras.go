@@ -3917,18 +3917,13 @@ func FilterMembersDetails(membMap map[string]struct{}, details []TeamMemberDetai
 	return res
 }
 
-func FilterTeamDetailsForMembers(usernames []string, details TeamDetails) TeamDetails {
+func FilterTeamDetailsForMembers(usernames []string, t AnnotatedTeam) AnnotatedTeam {
 	membMap := make(map[string]struct{})
 	for _, username := range usernames {
 		membMap[username] = struct{}{}
 	}
-	res := details.DeepCopy()
-	res.Members.Owners = FilterMembersDetails(membMap, res.Members.Owners)
-	res.Members.Admins = FilterMembersDetails(membMap, res.Members.Admins)
-	res.Members.Writers = FilterMembersDetails(membMap, res.Members.Writers)
-	res.Members.Readers = FilterMembersDetails(membMap, res.Members.Readers)
-	res.Members.Bots = FilterMembersDetails(membMap, res.Members.Bots)
-	res.Members.RestrictedBots = FilterMembersDetails(membMap, res.Members.RestrictedBots)
+	res := t.DeepCopy()
+	res.Members = FilterMembersDetails(membMap, res.Members)
 	return res
 }
 

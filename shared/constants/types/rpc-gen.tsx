@@ -1459,22 +1459,6 @@ export type MessageTypes = {
     inParam: {readonly name: String; readonly username: String; readonly role: TeamRole; readonly botSettings?: TeamBotSettings | null}
     outParam: void
   }
-  'keybase.1.teams.teamGet': {
-    inParam: {readonly name: String}
-    outParam: TeamDetails
-  }
-  'keybase.1.teams.teamGetByID': {
-    inParam: {readonly id: TeamID}
-    outParam: TeamDetails
-  }
-  'keybase.1.teams.teamGetMembers': {
-    inParam: {readonly name: String}
-    outParam: TeamMembersDetails
-  }
-  'keybase.1.teams.teamGetMembersByID': {
-    inParam: {readonly id: TeamID}
-    outParam: TeamMembersDetails
-  }
   'keybase.1.teams.teamIgnoreRequest': {
     inParam: {readonly name: String; readonly username: String}
     outParam: void
@@ -2817,10 +2801,10 @@ export type APIUserServiceSummary = {readonly serviceName: APIUserServiceID; rea
 export type AirdropDetails = {readonly uid: UID; readonly kid: BinaryKID; readonly vid: VID; readonly vers: String; readonly time: Time}
 export type AllProvisionedUsernames = {readonly defaultUsername: String; readonly provisionedUsernames?: Array<String> | null; readonly hasProvisionedUser: Boolean}
 export type AnnotatedMemberInfo = {readonly userID: UID; readonly teamID: TeamID; readonly username: String; readonly fullName: String; readonly fqName: String; readonly isImplicitTeam: Boolean; readonly impTeamDisplayName: String; readonly isOpenTeam: Boolean; readonly role: TeamRole; readonly implicit?: ImplicitRole | null; readonly needsPUK: Boolean; readonly memberCount: Int; readonly eldestSeqno: Seqno; readonly allowProfilePromote: Boolean; readonly isMemberShowcased: Boolean; readonly status: TeamMemberStatus}
-export type AnnotatedTeam = {readonly teamID: TeamID; readonly name: String; readonly transitiveSubteamsUnverified: SubteamListResult; readonly members?: Array<TeamMemberDetails> | null; readonly invites?: Array<AnnotatedTeamInvite> | null; readonly settings: TeamSettings; readonly joinRequests?: Array<TeamJoinRequest> | null; readonly tarsDisabled?: Boolean | null}
+export type AnnotatedTeam = {readonly teamID: TeamID; readonly name: String; readonly transitiveSubteamsUnverified: SubteamListResult; readonly members?: Array<TeamMemberDetails> | null; readonly invites?: Array<AnnotatedTeamInvite> | null; readonly settings: TeamSettings; readonly joinRequests?: Array<TeamJoinRequest> | null; readonly tarsDisabled?: Boolean | null; readonly keyGeneration: PerTeamKeyGeneration}
 export type AnnotatedTeamInvite = {readonly inviteMetadata: TeamInviteMetadata; readonly displayName: TeamInviteDisplayName; readonly inviterUsername: String; readonly teamName: String; readonly inviteExt: AnnotatedTeamInviteExt}
 export type AnnotatedTeamInviteExt = {c: TeamInviteCategory.keybase; keybase: KeybaseInviteExt} | {c: TeamInviteCategory.invitelink; invitelink: InvitelinkInviteExt} | {c: TeamInviteCategory.none} | {c: TeamInviteCategory.unknown} | {c: TeamInviteCategory.email} | {c: TeamInviteCategory.sbs} | {c: TeamInviteCategory.seitan} | {c: TeamInviteCategory.phone}
-export type AnnotatedTeamList = {readonly teams?: Array<AnnotatedMemberInfo> | null; readonly annotatedActiveInvites: {[key: string]: AnnotatedTeamInvite}}
+export type AnnotatedTeamList = {readonly teams?: Array<AnnotatedMemberInfo> | null}
 export type AnnotatedTeamUsedInviteLogPoint = {readonly username: String; readonly teamUsedInviteLogPoint: TeamUsedInviteLogPoint}
 export type Audit = {readonly time: Time; readonly mms: /* maxMerkleSeqno */ Seqno; readonly mcs: /* maxChainSeqno */ Seqno; readonly mhs: /* maxHiddenSeqno */ Seqno; readonly mmp: /* maxMerkleProbe */ Seqno}
 export type AuditHistory = {readonly ID: TeamID; readonly public: Boolean; readonly priorMerkleSeqno: Seqno; readonly version: AuditVersion; readonly audits?: Array<Audit> | null; readonly preProbes: {[key: string]: Probe}; readonly postProbes: {[key: string]: Probe}; readonly tails: {[key: string]: LinkID}; readonly hiddenTails: {[key: string]: LinkID}; readonly preProbesToRetry?: Array<Seqno> | null; readonly postProbesToRetry?: Array<Seqno> | null; readonly skipUntil: Time}
@@ -3925,10 +3909,6 @@ export const teamsTeamCreateSeitanTokenV2RpcPromise = (params: MessageTypes['key
 export const teamsTeamDeleteRpcPromise = (params: MessageTypes['keybase.1.teams.teamDelete']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamDelete']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamDelete', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
 export const teamsTeamDeleteRpcSaga = (p: {params: MessageTypes['keybase.1.teams.teamDelete']['inParam']; incomingCallMap: IncomingCallMapType; customResponseIncomingCallMap?: CustomResponseIncomingCallMap; waitingKey?: WaitingKey}) => call(getEngineSaga(), {method: 'keybase.1.teams.teamDelete', params: p.params, incomingCallMap: p.incomingCallMap, customResponseIncomingCallMap: p.customResponseIncomingCallMap, waitingKey: p.waitingKey})
 export const teamsTeamEditMemberRpcPromise = (params: MessageTypes['keybase.1.teams.teamEditMember']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamEditMember']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamEditMember', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
-export const teamsTeamGetByIDRpcPromise = (params: MessageTypes['keybase.1.teams.teamGetByID']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamGetByID']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamGetByID', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
-export const teamsTeamGetMembersByIDRpcPromise = (params: MessageTypes['keybase.1.teams.teamGetMembersByID']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamGetMembersByID']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamGetMembersByID', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
-export const teamsTeamGetMembersRpcPromise = (params: MessageTypes['keybase.1.teams.teamGetMembers']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamGetMembers']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamGetMembers', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
-export const teamsTeamGetRpcPromise = (params: MessageTypes['keybase.1.teams.teamGet']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamGet']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamGet', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
 export const teamsTeamIgnoreRequestRpcPromise = (params: MessageTypes['keybase.1.teams.teamIgnoreRequest']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamIgnoreRequest']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamIgnoreRequest', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
 export const teamsTeamLeaveRpcPromise = (params: MessageTypes['keybase.1.teams.teamLeave']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamLeave']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamLeave', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
 export const teamsTeamListMyAccessRequestsRpcPromise = (params: MessageTypes['keybase.1.teams.teamListMyAccessRequests']['inParam'], waitingKey?: WaitingKey) => new Promise<MessageTypes['keybase.1.teams.teamListMyAccessRequests']['outParam']>((resolve, reject) => engine()._rpcOutgoing({method: 'keybase.1.teams.teamListMyAccessRequests', params, callback: (error, result) => (error ? reject(error) : resolve(result)), waitingKey}))
@@ -4336,7 +4316,6 @@ export const wotWotVouchRpcPromise = (params: MessageTypes['keybase.1.wot.wotVou
 // 'keybase.1.streamUi.reset'
 // 'keybase.1.streamUi.write'
 // 'keybase.1.teams.teamCreateWithSettings'
-// 'keybase.1.teams.teamImplicitAdmins'
 // 'keybase.1.teams.teamListTeammates'
 // 'keybase.1.teams.teamListVerified'
 // 'keybase.1.teams.teamListSubteamsRecursive'
@@ -4365,6 +4344,7 @@ export const wotWotVouchRpcPromise = (params: MessageTypes['keybase.1.wot.wotVou
 // 'keybase.1.teams.profileTeamLoad'
 // 'keybase.1.teams.getTeamName'
 // 'keybase.1.teams.ftl'
+// 'keybase.1.teams.getAnnotatedTeamByName'
 // 'keybase.1.teamsUi.confirmRootTeamDelete'
 // 'keybase.1.teamsUi.confirmSubteamDelete'
 // 'keybase.1.teamsUi.confirmInviteLinkAccept'

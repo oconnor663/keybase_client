@@ -662,7 +662,7 @@ protocol teams {
   }
   record InvitelinkInviteExt {
     // isExpired should be used to infer expiration because the service's client's clock may
-    // differ from the client's clock.
+    // differ from the client's clsock.
     // NOTE: not the same as an invite being cancelled, which is provided by
     //  TeamInviteMetadata.Status.
     boolean isExpired;
@@ -1237,7 +1237,6 @@ protocol teams {
 
   record AnnotatedTeamList {
       array<AnnotatedMemberInfo> teams;
-      map<TeamInviteID,AnnotatedTeamInvite> annotatedActiveInvites;
   }
 
   record TeamAddMemberResult {
@@ -1347,21 +1346,9 @@ protocol teams {
 
   TeamID teamCreateFancy(int sessionID, TeamCreateFancyInfo teamInfo);
 
-  // A user can hope for success if and only if they are a member of
-  // the team or an admin of any of its ancestors.
-  TeamDetails teamGetByID(int sessionID, TeamID id);
-
-  // A user can hope for success if and only if they are a member of
-  // the team or an admin of any of its ancestors.
-  TeamDetails teamGet(int sessionID, string name);
-
-  // Get the members of the team
-  TeamMembersDetails teamGetMembers(int sessionID, string name);
-  TeamMembersDetails teamGetMembersByID(int sessionID, TeamID id);
-
-  // List all the admins of ancestor teams.
-  // Includes admins of the specified team only if they are also admins of ancestor teams.
-  array<TeamMemberDetails> teamImplicitAdmins(int sessionID, string teamName);
+  /* // List all the admins of ancestor teams. */
+  /* // Includes admins of the specified team only if they are also admins of ancestor teams. */
+  /* array<TeamMemberDetails> teamImplicitAdmins(int sessionID, string teamName); */
 
   // List known team memberships for given userAssertion or current
   // user if userAssertion is not given. This RPC uses fast server-
@@ -1717,9 +1704,12 @@ protocol teams {
     // admins only
     union { null, array<TeamJoinRequest> } joinRequests;
     union { null, boolean } tarsDisabled;
+
+    PerTeamKeyGeneration keyGeneration;
   }
 
   AnnotatedTeam getAnnotatedTeam(TeamID teamID);
+  AnnotatedTeam getAnnotatedTeamByName(string teamName);
 
   // For member page
   record TeamTreeMembershipValue {

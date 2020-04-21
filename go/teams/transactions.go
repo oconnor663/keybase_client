@@ -719,7 +719,7 @@ func (tx *AddMemberTx) CanConsumeInvite(ctx context.Context, inviteID keybase1.T
 
 		now := tx.team.G().Clock().Now()
 		if invite.IsExpired(now) {
-			return NewInviteLinkAcceptanceError("invite expired at %v which is before the current time of %v; rejecting", etime, now)
+			return NewInviteLinkAcceptanceError("invite expired at %v which is before the current time of %v; rejecting", invite.Etime, now)
 		}
 	}
 

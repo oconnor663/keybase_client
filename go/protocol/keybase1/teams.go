@@ -3353,8 +3353,7 @@ func (o AnnotatedMemberInfo) DeepCopy() AnnotatedMemberInfo {
 }
 
 type AnnotatedTeamList struct {
-	Teams                  []AnnotatedMemberInfo                `codec:"teams" json:"teams"`
-	AnnotatedActiveInvites map[TeamInviteID]AnnotatedTeamInvite `codec:"annotatedActiveInvites" json:"annotatedActiveInvites"`
+	Teams []AnnotatedMemberInfo `codec:"teams" json:"teams"`
 }
 
 func (o AnnotatedTeamList) DeepCopy() AnnotatedTeamList {
@@ -3370,18 +3369,6 @@ func (o AnnotatedTeamList) DeepCopy() AnnotatedTeamList {
 			}
 			return ret
 		})(o.Teams),
-		AnnotatedActiveInvites: (func(x map[TeamInviteID]AnnotatedTeamInvite) map[TeamInviteID]AnnotatedTeamInvite {
-			if x == nil {
-				return nil
-			}
-			ret := make(map[TeamInviteID]AnnotatedTeamInvite, len(x))
-			for k, v := range x {
-				kCopy := k.DeepCopy()
-				vCopy := v.DeepCopy()
-				ret[kCopy] = vCopy
-			}
-			return ret
-		})(o.AnnotatedActiveInvites),
 	}
 }
 
@@ -4194,6 +4181,7 @@ type AnnotatedTeam struct {
 	Settings                     TeamSettings          `codec:"settings" json:"settings"`
 	JoinRequests                 *[]TeamJoinRequest    `codec:"joinRequests,omitempty" json:"joinRequests,omitempty"`
 	TarsDisabled                 *bool                 `codec:"tarsDisabled,omitempty" json:"tarsDisabled,omitempty"`
+	KeyGeneration                PerTeamKeyGeneration  `codec:"keyGeneration" json:"keyGeneration"`
 }
 
 func (o AnnotatedTeam) DeepCopy() AnnotatedTeam {
@@ -4248,6 +4236,7 @@ func (o AnnotatedTeam) DeepCopy() AnnotatedTeam {
 			tmp := (*x)
 			return &tmp
 		})(o.TarsDisabled),
+		KeyGeneration: o.KeyGeneration.DeepCopy(),
 	}
 }
 
@@ -4460,31 +4449,6 @@ type TeamCreateWithSettingsArg struct {
 type TeamCreateFancyArg struct {
 	SessionID int                 `codec:"sessionID" json:"sessionID"`
 	TeamInfo  TeamCreateFancyInfo `codec:"teamInfo" json:"teamInfo"`
-}
-
-type TeamGetByIDArg struct {
-	SessionID int    `codec:"sessionID" json:"sessionID"`
-	Id        TeamID `codec:"id" json:"id"`
-}
-
-type TeamGetArg struct {
-	SessionID int    `codec:"sessionID" json:"sessionID"`
-	Name      string `codec:"name" json:"name"`
-}
-
-type TeamGetMembersArg struct {
-	SessionID int    `codec:"sessionID" json:"sessionID"`
-	Name      string `codec:"name" json:"name"`
-}
-
-type TeamGetMembersByIDArg struct {
-	SessionID int    `codec:"sessionID" json:"sessionID"`
-	Id        TeamID `codec:"id" json:"id"`
-}
-
-type TeamImplicitAdminsArg struct {
-	SessionID int    `codec:"sessionID" json:"sessionID"`
-	TeamName  string `codec:"teamName" json:"teamName"`
 }
 
 type TeamListUnverifiedArg struct {
@@ -4822,6 +4786,10 @@ type GetAnnotatedTeamArg struct {
 	TeamID TeamID `codec:"teamID" json:"teamID"`
 }
 
+type GetAnnotatedTeamByNameArg struct {
+	TeamName string `codec:"teamName" json:"teamName"`
+}
+
 type LoadTeamTreeMembershipsAsyncArg struct {
 	SessionID int    `codec:"sessionID" json:"sessionID"`
 	TeamID    TeamID `codec:"teamID" json:"teamID"`
@@ -4833,11 +4801,6 @@ type TeamsInterface interface {
 	TeamCreate(context.Context, TeamCreateArg) (TeamCreateResult, error)
 	TeamCreateWithSettings(context.Context, TeamCreateWithSettingsArg) (TeamCreateResult, error)
 	TeamCreateFancy(context.Context, TeamCreateFancyArg) (TeamID, error)
-	TeamGetByID(context.Context, TeamGetByIDArg) (TeamDetails, error)
-	TeamGet(context.Context, TeamGetArg) (TeamDetails, error)
-	TeamGetMembers(context.Context, TeamGetMembersArg) (TeamMembersDetails, error)
-	TeamGetMembersByID(context.Context, TeamGetMembersByIDArg) (TeamMembersDetails, error)
-	TeamImplicitAdmins(context.Context, TeamImplicitAdminsArg) ([]TeamMemberDetails, error)
 	TeamListUnverified(context.Context, TeamListUnverifiedArg) (AnnotatedTeamList, error)
 	TeamListTeammates(context.Context, TeamListTeammatesArg) (AnnotatedTeamList, error)
 	TeamListVerified(context.Context, TeamListVerifiedArg) (AnnotatedTeamList, error)
@@ -4913,6 +4876,7 @@ type TeamsInterface interface {
 	Ftl(context.Context, FastTeamLoadArg) (FastTeamLoadRes, error)
 	GetTeamRoleMap(context.Context) (TeamRoleMapAndVersion, error)
 	GetAnnotatedTeam(context.Context, TeamID) (AnnotatedTeam, error)
+	GetAnnotatedTeamByName(context.Context, string) (AnnotatedTeam, error)
 	LoadTeamTreeMembershipsAsync(context.Context, LoadTeamTreeMembershipsAsyncArg) (TeamTreeInitial, error)
 }
 
@@ -4977,81 +4941,6 @@ func TeamsProtocol(i TeamsInterface) rpc.Protocol {
 						return
 					}
 					ret, err = i.TeamCreateFancy(ctx, typedArgs[0])
-					return
-				},
-			},
-			"teamGetByID": {
-				MakeArg: func() interface{} {
-					var ret [1]TeamGetByIDArg
-					return &ret
-				},
-				Handler: func(ctx context.Context, args interface{}) (ret interface{}, err error) {
-					typedArgs, ok := args.(*[1]TeamGetByIDArg)
-					if !ok {
-						err = rpc.NewTypeError((*[1]TeamGetByIDArg)(nil), args)
-						return
-					}
-					ret, err = i.TeamGetByID(ctx, typedArgs[0])
-					return
-				},
-			},
-			"teamGet": {
-				MakeArg: func() interface{} {
-					var ret [1]TeamGetArg
-					return &ret
-				},
-				Handler: func(ctx context.Context, args interface{}) (ret interface{}, err error) {
-					typedArgs, ok := args.(*[1]TeamGetArg)
-					if !ok {
-						err = rpc.NewTypeError((*[1]TeamGetArg)(nil), args)
-						return
-					}
-					ret, err = i.TeamGet(ctx, typedArgs[0])
-					return
-				},
-			},
-			"teamGetMembers": {
-				MakeArg: func() interface{} {
-					var ret [1]TeamGetMembersArg
-					return &ret
-				},
-				Handler: func(ctx context.Context, args interface{}) (ret interface{}, err error) {
-					typedArgs, ok := args.(*[1]TeamGetMembersArg)
-					if !ok {
-						err = rpc.NewTypeError((*[1]TeamGetMembersArg)(nil), args)
-						return
-					}
-					ret, err = i.TeamGetMembers(ctx, typedArgs[0])
-					return
-				},
-			},
-			"teamGetMembersByID": {
-				MakeArg: func() interface{} {
-					var ret [1]TeamGetMembersByIDArg
-					return &ret
-				},
-				Handler: func(ctx context.Context, args interface{}) (ret interface{}, err error) {
-					typedArgs, ok := args.(*[1]TeamGetMembersByIDArg)
-					if !ok {
-						err = rpc.NewTypeError((*[1]TeamGetMembersByIDArg)(nil), args)
-						return
-					}
-					ret, err = i.TeamGetMembersByID(ctx, typedArgs[0])
-					return
-				},
-			},
-			"teamImplicitAdmins": {
-				MakeArg: func() interface{} {
-					var ret [1]TeamImplicitAdminsArg
-					return &ret
-				},
-				Handler: func(ctx context.Context, args interface{}) (ret interface{}, err error) {
-					typedArgs, ok := args.(*[1]TeamImplicitAdminsArg)
-					if !ok {
-						err = rpc.NewTypeError((*[1]TeamImplicitAdminsArg)(nil), args)
-						return
-					}
-					ret, err = i.TeamImplicitAdmins(ctx, typedArgs[0])
 					return
 				},
 			},
@@ -5905,6 +5794,21 @@ func TeamsProtocol(i TeamsInterface) rpc.Protocol {
 					return
 				},
 			},
+			"getAnnotatedTeamByName": {
+				MakeArg: func() interface{} {
+					var ret [1]GetAnnotatedTeamByNameArg
+					return &ret
+				},
+				Handler: func(ctx context.Context, args interface{}) (ret interface{}, err error) {
+					typedArgs, ok := args.(*[1]GetAnnotatedTeamByNameArg)
+					if !ok {
+						err = rpc.NewTypeError((*[1]GetAnnotatedTeamByNameArg)(nil), args)
+						return
+					}
+					ret, err = i.GetAnnotatedTeamByName(ctx, typedArgs[0].TeamName)
+					return
+				},
+			},
 			"loadTeamTreeMembershipsAsync": {
 				MakeArg: func() interface{} {
 					var ret [1]LoadTeamTreeMembershipsAsyncArg
@@ -5946,31 +5850,6 @@ func (c TeamsClient) TeamCreateWithSettings(ctx context.Context, __arg TeamCreat
 
 func (c TeamsClient) TeamCreateFancy(ctx context.Context, __arg TeamCreateFancyArg) (res TeamID, err error) {
 	err = c.Cli.Call(ctx, "keybase.1.teams.teamCreateFancy", []interface{}{__arg}, &res, 0*time.Millisecond)
-	return
-}
-
-func (c TeamsClient) TeamGetByID(ctx context.Context, __arg TeamGetByIDArg) (res TeamDetails, err error) {
-	err = c.Cli.Call(ctx, "keybase.1.teams.teamGetByID", []interface{}{__arg}, &res, 0*time.Millisecond)
-	return
-}
-
-func (c TeamsClient) TeamGet(ctx context.Context, __arg TeamGetArg) (res TeamDetails, err error) {
-	err = c.Cli.Call(ctx, "keybase.1.teams.teamGet", []interface{}{__arg}, &res, 0*time.Millisecond)
-	return
-}
-
-func (c TeamsClient) TeamGetMembers(ctx context.Context, __arg TeamGetMembersArg) (res TeamMembersDetails, err error) {
-	err = c.Cli.Call(ctx, "keybase.1.teams.teamGetMembers", []interface{}{__arg}, &res, 0*time.Millisecond)
-	return
-}
-
-func (c TeamsClient) TeamGetMembersByID(ctx context.Context, __arg TeamGetMembersByIDArg) (res TeamMembersDetails, err error) {
-	err = c.Cli.Call(ctx, "keybase.1.teams.teamGetMembersByID", []interface{}{__arg}, &res, 0*time.Millisecond)
-	return
-}
-
-func (c TeamsClient) TeamImplicitAdmins(ctx context.Context, __arg TeamImplicitAdminsArg) (res []TeamMemberDetails, err error) {
-	err = c.Cli.Call(ctx, "keybase.1.teams.teamImplicitAdmins", []interface{}{__arg}, &res, 0*time.Millisecond)
 	return
 }
 
@@ -6287,6 +6166,12 @@ func (c TeamsClient) GetTeamRoleMap(ctx context.Context) (res TeamRoleMapAndVers
 func (c TeamsClient) GetAnnotatedTeam(ctx context.Context, teamID TeamID) (res AnnotatedTeam, err error) {
 	__arg := GetAnnotatedTeamArg{TeamID: teamID}
 	err = c.Cli.Call(ctx, "keybase.1.teams.getAnnotatedTeam", []interface{}{__arg}, &res, 0*time.Millisecond)
+	return
+}
+
+func (c TeamsClient) GetAnnotatedTeamByName(ctx context.Context, teamName string) (res AnnotatedTeam, err error) {
+	__arg := GetAnnotatedTeamByNameArg{TeamName: teamName}
+	err = c.Cli.Call(ctx, "keybase.1.teams.getAnnotatedTeamByName", []interface{}{__arg}, &res, 0*time.Millisecond)
 	return
 }
 

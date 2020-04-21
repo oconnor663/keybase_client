@@ -2787,14 +2787,6 @@
             "items": "AnnotatedMemberInfo"
           },
           "name": "teams"
-        },
-        {
-          "type": {
-            "type": "map",
-            "values": "AnnotatedTeamInvite",
-            "keys": "TeamInviteID"
-          },
-          "name": "annotatedActiveInvites"
         }
       ]
     },
@@ -3682,6 +3674,10 @@
             "boolean"
           ],
           "name": "tarsDisabled"
+        },
+        {
+          "type": "PerTeamKeyGeneration",
+          "name": "keyGeneration"
         }
       ]
     },
@@ -3883,74 +3879,6 @@
         }
       ],
       "response": "TeamID"
-    },
-    "teamGetByID": {
-      "request": [
-        {
-          "name": "sessionID",
-          "type": "int"
-        },
-        {
-          "name": "id",
-          "type": "TeamID"
-        }
-      ],
-      "response": "TeamDetails"
-    },
-    "teamGet": {
-      "request": [
-        {
-          "name": "sessionID",
-          "type": "int"
-        },
-        {
-          "name": "name",
-          "type": "string"
-        }
-      ],
-      "response": "TeamDetails"
-    },
-    "teamGetMembers": {
-      "request": [
-        {
-          "name": "sessionID",
-          "type": "int"
-        },
-        {
-          "name": "name",
-          "type": "string"
-        }
-      ],
-      "response": "TeamMembersDetails"
-    },
-    "teamGetMembersByID": {
-      "request": [
-        {
-          "name": "sessionID",
-          "type": "int"
-        },
-        {
-          "name": "id",
-          "type": "TeamID"
-        }
-      ],
-      "response": "TeamMembersDetails"
-    },
-    "teamImplicitAdmins": {
-      "request": [
-        {
-          "name": "sessionID",
-          "type": "int"
-        },
-        {
-          "name": "teamName",
-          "type": "string"
-        }
-      ],
-      "response": {
-        "type": "array",
-        "items": "TeamMemberDetails"
-      }
     },
     "teamListUnverified": {
       "request": [
@@ -4963,6 +4891,15 @@
         {
           "name": "teamID",
           "type": "TeamID"
+        }
+      ],
+      "response": "AnnotatedTeam"
+    },
+    "getAnnotatedTeamByName": {
+      "request": [
+        {
+          "name": "teamName",
+          "type": "string"
         }
       ],
       "response": "AnnotatedTeam"

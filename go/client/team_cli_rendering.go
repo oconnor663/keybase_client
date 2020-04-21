@@ -6,12 +6,9 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/keybase/client/go/libkb"
 	"github.com/keybase/client/go/protocol/keybase1"
-
-	humanize "github.com/dustin/go-humanize"
 )
 
 type teamMembersRenderer struct {
@@ -28,16 +25,16 @@ func newTeamMembersRenderer(g *libkb.GlobalContext, json, showInviteID bool) *te
 	}
 }
 
-func (c *teamMembersRenderer) output(details keybase1.TeamDetails, team string, verbose bool) error {
+func (c *teamMembersRenderer) output(t keybase1.AnnotatedTeam, team string, verbose bool) error {
 	if c.json {
-		return c.outputJSON(details)
+		return c.outputJSON(t)
 	}
 
-	return c.outputTerminal(details, team, verbose)
+	return c.outputTerminal(t, team, verbose)
 }
 
-func (c *teamMembersRenderer) outputJSON(details keybase1.TeamDetails) error {
-	b, err := json.MarshalIndent(details, "", "    ")
+func (c *teamMembersRenderer) outputJSON(t keybase1.AnnotatedTeam) error {
+	b, err := json.MarshalIndent(t, "", "    ")
 	if err != nil {
 		return err
 	}
@@ -46,22 +43,26 @@ func (c *teamMembersRenderer) outputJSON(details keybase1.TeamDetails) error {
 	return err
 }
 
-func (c *teamMembersRenderer) outputTerminal(details keybase1.TeamDetails, team string, verbose bool) error {
+func (c *teamMembersRenderer) outputTerminal(t keybase1.AnnotatedTeam, team string, verbose bool) error {
 	dui := c.G().UI.GetTerminalUI()
 	c.tabw = new(tabwriter.Writer)
 	c.tabw.Init(dui.OutputWriter(), 0, 8, 2, ' ', 0)
 
-	c.outputRole(team, "owner", details.Members.Owners)
-	c.outputRole(team, "admin", details.Members.Admins)
-	c.outputRole(team, "writer", details.Members.Writers)
-	c.outputRole(team, "reader", details.Members.Readers)
-	c.outputRole(team, "bot", details.Members.Bots)
-	c.outputRole(team, "restricted_bot", details.Members.RestrictedBots)
-	c.outputInvites(details.AnnotatedActiveInvites)
+	for _, member := range t.Members {
+		var status string
+		switch member.Status {
+		case keybase1.TeamMemberStatus_RESET:
+			status = " (inactive due to account reset)"
+		case keybase1.TeamMemberStatus_DELETED:
+			status = " (inactive due to account delete)"
+		}
+		fmt.Fprintf(c.tabw, "%s\t%s\t%s\t%s%s\n", team, member.Role, member.Username, member.FullName, status)
+	}
+	c.outputInvites(t.Invites)
 	c.tabw.Flush()
 
 	if verbose {
-		dui.Printf("At team key generation: %d\n", details.KeyGeneration)
+		dui.Printf("At team key generation: %d\n", t.KeyGeneration)
 	}
 
 	return nil
@@ -80,31 +81,52 @@ func (c *teamMembersRenderer) outputRole(team, role string, members []keybase1.T
 	}
 }
 
-func (c *teamMembersRenderer) outputInvites(invites map[keybase1.TeamInviteID]keybase1.AnnotatedTeamInvite) {
-	var inviteList []keybase1.AnnotatedTeamInvite
-	for _, annotatedInvite := range invites {
-		inviteList = append(inviteList, annotatedInvite)
-	}
-	sort.SliceStable(inviteList, func(i, j int) bool {
-		a, aErr := inviteList[i].InviteMetadata.Invite.Type.C()
-		b, bErr := inviteList[j].InviteMetadata.Invite.Type.C()
+func (c *teamMembersRenderer) outputInvites(annotatedInvites []keybase1.AnnotatedTeamInvite) {
+	sort.SliceStable(annotatedInvites, func(i, j int) bool {
+		a, aErr := annotatedInvites[i].InviteMetadata.Invite.Type.C()
+		b, bErr := annotatedInvites[j].InviteMetadata.Invite.Type.C()
 		if aErr != nil || bErr != nil {
 			return bErr != nil
 		}
 		return a.String() < b.String()
 	})
-	for _, annotatedInvite := range inviteList {
-		invite := annotatedInvite.InviteMetadata.Invite
+	for _, annotatedInvite := range annotatedInvites {
+		inviteMD := annotatedInvite.InviteMetadata
+		invite := inviteMD.Invite
 		category, err := invite.Type.C()
 		if err != nil {
-			category = keybase1.TeamInviteCategory_UNKNOWN
+			fmt.Fprintf(c.tabw, "failed to parse invite; try updating your app")
+			continue
 		}
+		switch category {
+		case keybase1.TeamInviteCategory_UNKNOWN:
+			fmt.Fprintf(c.tabw, "got unknown invite; try updating your app")
+			continue
+		case keybase1.TeamInviteCategory_KEYBASE:
+			// skip keybase-type invites that will be shown in members view
+			continue
+		}
+		code, err := inviteMD.Status.Code()
+		if err != nil {
+			fmt.Fprintf(c.tabw, "failed to parse invite status; try updating your app")
+			continue
+		}
+		// Skip completed and obsolete invites (note invitelinks are never completed)
+		switch code {
+		case keybase1.TeamInviteMetadataStatusCode_OBSOLETE:
+			continue
+		case keybase1.TeamInviteMetadataStatusCode_COMPLETED:
+			continue
+		}
+
 		trailer := fmt.Sprintf("(* invited by %s)", annotatedInvite.InviterUsername)
 		inviteIDTrailer := ""
 		if c.showInviteID {
 			// Show invite IDs for SEITAN tokens, which can be used to cancel the invite.
 			inviteIDTrailer = fmt.Sprintf(" (Invite ID: %s)", invite.Id)
 		}
+		expirationDeltaFormatted := "does not expire"
+		usesLeft := "single use"
 		switch category {
 		case keybase1.TeamInviteCategory_EMAIL:
 			trailer = fmt.Sprintf("(* invited via email by %s)", annotatedInvite.InviterUsername)
@@ -114,20 +136,14 @@ func (c *teamMembersRenderer) outputInvites(invites map[keybase1.TeamInviteID]ke
 		case keybase1.TeamInviteCategory_INVITELINK:
 			trailer = fmt.Sprintf("(* invite link created by %s)%s",
 				annotatedInvite.InviterUsername, inviteIDTrailer)
+			expirationDeltaFormatted = annotatedInvite.InviteExt.Invitelink().ExpirationDeltaFormatted
+			usesLeft = invite.MaxUses.String(len(annotatedInvite.InviteMetadata.UsedInvites))
 		}
-
-		etime := "does not expire"
-		if invite.Etime != nil {
-			t := keybase1.FromUnixTime(*invite.Etime)
-			etime = "expiration: " + humanize.RelTime(t, time.Now(), "ago", "from now")
-		}
-
-		usesLeft := invite.MaxUses.String(len(annotatedInvite.AnnotatedUsedInvites))
 
 		fmtstring := "%s\t%s*\t%s\t%s\t%s\t%s\n"
 		fmt.Fprintf(c.tabw, fmtstring, annotatedInvite.TeamName,
 			strings.ToLower(invite.Role.String()), annotatedInvite.DisplayName,
-			etime, usesLeft, trailer)
+			expirationDeltaFormatted, usesLeft, trailer)
 	}
 }
 
@@ -186,9 +202,6 @@ func (c *teamMembersRenderer) outputTeams(list keybase1.AnnotatedTeamList, showA
 		} else {
 			fmt.Fprintf(c.tabw, "%s\t%s\t%d\n", t.FqName, role, t.MemberCount)
 		}
-	}
-	if showAll {
-		c.outputInvites(list.AnnotatedActiveInvites)
 	}
 
 	c.tabw.Flush()

@@ -19,7 +19,7 @@ func CheckUserOrTeamName(ctx context.Context, g *libkb.GlobalContext, name strin
 	if err != nil {
 		return res, err
 	}
-	_, err = cli.TeamGet(ctx, keybase1.TeamGetArg{Name: name})
+	_, err = cli.GetAnnotatedTeamByName(ctx, name)
 	if err != nil {
 		// https://github.com/keybase/client/blob/249cfcb4b4bd6dcc50d207d0b88eee455a7f6c2d/go/protocol/keybase1/extras.go#L2249
 		if strings.Contains(err.Error(), "team names must be between 2 and 16 characters long") ||

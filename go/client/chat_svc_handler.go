@@ -1305,7 +1305,7 @@ func (c *chatServiceHandler) ListMembersV1(ctx context.Context, opts listMembers
 	if err != nil {
 		return c.errReply(err)
 	}
-	details, err := cli.TeamGetByID(context.Background(), keybase1.TeamGetByIDArg{Id: teamID})
+	t, err := cli.GetAnnotatedTeam(context.Background(), teamID)
 	if err != nil {
 		return c.errReply(err)
 	}
@@ -1321,10 +1321,10 @@ func (c *chatServiceHandler) ListMembersV1(ctx context.Context, opts listMembers
 
 	// filter the member list down to the specific conversation members based on the server-trust list
 	if conv.Info.TopicName != "" && opts.Channel.TopicName != "general" {
-		details = keybase1.FilterTeamDetailsForMembers(usernames, details)
+		t = keybase1.FilterTeamDetailsForMembers(usernames, t)
 	}
 
-	return Reply{Result: chat1.TeamToChatMembersDetails(details.Members)}
+	return Reply{Result: chat1.TeamToChatMemberDetails(t.Members)}
 }
 
 func (c *chatServiceHandler) EmojiRemoveV1(ctx context.Context, opts emojiRemoveOptionsV1) Reply {

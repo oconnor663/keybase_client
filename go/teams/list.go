@@ -191,8 +191,7 @@ func ListTeamsVerified(ctx context.Context, g *libkb.GlobalContext,
 	}
 
 	res := &keybase1.AnnotatedTeamList{
-		Teams:                  nil,
-		AnnotatedActiveInvites: make(map[keybase1.TeamInviteID]keybase1.AnnotatedTeamInvite),
+		Teams: nil,
 	}
 
 	if len(teams) == 0 {
@@ -281,8 +280,7 @@ func ListAll(ctx context.Context, g *libkb.GlobalContext, arg keybase1.TeamListT
 	}
 
 	res := &keybase1.AnnotatedTeamList{
-		Teams:                  nil,
-		AnnotatedActiveInvites: make(map[keybase1.TeamInviteID]keybase1.AnnotatedTeamInvite),
+		Teams: nil,
 	}
 
 	if len(teams) == 0 {
@@ -326,11 +324,6 @@ func ListAll(ctx context.Context, g *libkb.GlobalContext, arg keybase1.TeamListT
 		}
 
 		res.Teams = append(res.Teams, *anMemberInfo)
-
-		if anMemberInfo.UserID == meUID {
-			// Go through team invites - only once per TeamID.
-			parseInvitesNoAnnotate(ctx, g, team, res)
-		}
 	}
 
 	if len(teams) == 0 && !expectEmptyList {
@@ -342,9 +335,6 @@ func ListAll(ctx context.Context, g *libkb.GlobalContext, arg keybase1.TeamListT
 	var uids []keybase1.UID
 	for _, member := range res.Teams {
 		uids = append(uids, member.UserID)
-	}
-	for _, invite := range res.AnnotatedActiveInvites {
-		uids = append(uids, invite.InviteMetadata.Invite.Inviter.Uid)
 	}
 
 	namePkgs, err := uidmap.MapUIDsReturnMap(ctx, g.UIDMapper, g, uids,
@@ -372,12 +362,6 @@ func ListAll(ctx context.Context, g *libkb.GlobalContext, arg keybase1.TeamListT
 					member.Status = keybase1.TeamMemberStatus_DELETED
 				}
 			}
-		}
-	}
-	for i, invite := range res.AnnotatedActiveInvites {
-		if pkg, ok := namePkgs[invite.InviteMetadata.Invite.Inviter.Uid]; ok {
-			invite.InviterUsername = pkg.NormalizedUsername.String()
-			res.AnnotatedActiveInvites[i] = invite
 		}
 	}
 
@@ -659,47 +643,6 @@ func getAnnotatedInvites(mctx libkb.MetaContext, team *Team) (annotatedInvites [
 	}
 
 	return annotatedInvites, nil
-}
-
-func parseInvitesNoAnnotate(ctx context.Context, g *libkb.GlobalContext, team *Team, res *keybase1.AnnotatedTeamList) {
-	inviteMDs := team.chain().ActiveInvites()
-	for invID, inviteMD := range inviteMDs {
-		invite := inviteMD.Invite
-		category, err := invite.Type.C()
-		if err != nil {
-			g.Log.CDebugf(ctx, "| parseInvitesNoAnnotate failed to parse invite %q for team %q: %v", invID, team.ID, err)
-			continue
-		}
-
-		switch category {
-		case keybase1.TeamInviteCategory_KEYBASE:
-			// Treat KEYBASE invites (for PUK-less users) as
-			// team members.
-			uv, err := invite.KeybaseUserVersion()
-			if err != nil {
-				g.Log.CDebugf(ctx, "| parseInvitesNoAnnotate failed to parse invite %q for team %q (name is not proper UV): %v", invID, team.ID, err)
-				continue
-			}
-
-			res.Teams = append(res.Teams, keybase1.AnnotatedMemberInfo{
-				TeamID:         team.ID,
-				FqName:         team.Name().String(),
-				UserID:         uv.Uid,
-				EldestSeqno:    uv.EldestSeqno,
-				Role:           invite.Role,
-				IsImplicitTeam: team.IsImplicit(),
-				Implicit:       nil,
-				Status:         keybase1.TeamMemberStatus_ACTIVE,
-			})
-		case keybase1.TeamInviteCategory_SEITAN, keybase1.TeamInviteCategory_INVITELINK:
-			// Don't show seitans or links in this view.
-		default:
-			res.AnnotatedActiveInvites[invite.Id] = keybase1.AnnotatedTeamInvite{
-				InviteMetadata: inviteMD,
-				TeamName:       team.Name().String(),
-			}
-		}
-	}
 }
 
 func TeamTreeUnverified(ctx context.Context, g *libkb.GlobalContext, arg keybase1.TeamTreeUnverifiedArg) (res keybase1.TeamTreeResult, err error) {
