@@ -36,8 +36,8 @@ protocol wot {
   void wotVouchCLI(int sessionID, string assertion, string vouchText, Confidence confidence);
 
   enum WotReactionType {
-    ACCEPT_0,
-    REJECT_1
+    REJECT_0,
+    ACCEPT_1
   }
   void wotReact(int sessionID, string voucher, WotReactionType reaction);
 

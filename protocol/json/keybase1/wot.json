@@ -77,8 +77,8 @@
       "type": "enum",
       "name": "WotReactionType",
       "symbols": [
-        "ACCEPT_0",
-        "REJECT_1"
+        "REJECT_0",
+        "ACCEPT_1"
       ]
     },
     {

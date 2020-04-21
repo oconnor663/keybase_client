@@ -8,6 +8,8 @@ import * as RPCTypes from '../constants/types/rpc-gen'
 import * as Constants from '../constants/users'
 import * as TrackerConstants from '../constants/tracker2'
 import * as Tracker2Gen from './tracker2-gen'
+import * as ProfileGen from './profile-gen'
+import * as RouteTreeGen from './route-tree-gen'
 import {TypedState} from '../util/container'
 import logger from '../logger'
 import {RPCError} from 'util/errors'
@@ -88,8 +90,28 @@ const submitRevokeVouch = async (_: TypedState, action: UsersGen.SubmitRevokeVou
   })
 }
 
-const wotReact = async (action: UsersGen.WotReactPayload) => {
-  await RPCTypes.wotWotReactRpcPromise(action.payload, Constants.wotReactWaitingKey)
+const wotReact = async (state: TypedState, action: UsersGen.WotReactPayload, logger: Saga.SagaLogger) => {
+  const {reaction, voucher} = action.payload
+  if (!action.payload.fromModal) {
+    // xxx no good error path here. This happens when coming from a button directly on the profile screen.
+    await RPCTypes.wotWotReactRpcPromise({reaction, voucher}, Constants.wotReactWaitingKey)
+    return []
+  }
+  try {
+    await RPCTypes.wotWotReactRpcPromise(
+      {
+        reaction,
+        voucher,
+      },
+      Constants.wotReactWaitingKey
+    )
+  } catch (e) {
+    logger.warn('Error from wotReact:', e)
+    return ProfileGen.createWotVouchSetError({
+      error: e.desc || `There was an error reviewing the claim.`,
+    })
+  }
+  return [ProfileGen.createWotVouchSetError({error: ''}), RouteTreeGen.createClearModals()]
 }
 
 function* usersSaga() {
@@ -98,7 +120,7 @@ function* usersSaga() {
   yield* Saga.chainAction(UsersGen.setUserBlocks, setUserBlocks)
   yield* Saga.chainAction(UsersGen.getBlockState, getBlockState)
   yield* Saga.chainAction(UsersGen.reportUser, reportUser)
-  yield* Saga.chainAction(UsersGen.wotReact, wotReact)
+  yield* Saga.chainAction2(UsersGen.wotReact, wotReact)
   yield* Saga.chainAction2(UsersGen.submitRevokeVouch, submitRevokeVouch)
   yield* Saga.chainAction(TeamBuildingGen.searchResultsLoaded, refreshBlockList)
 }

@@ -63,20 +63,20 @@ func (o Confidence) DeepCopy() Confidence {
 type WotReactionType int
 
 const (
-	WotReactionType_ACCEPT WotReactionType = 0
-	WotReactionType_REJECT WotReactionType = 1
+	WotReactionType_REJECT WotReactionType = 0
+	WotReactionType_ACCEPT WotReactionType = 1
 )
 
 func (o WotReactionType) DeepCopy() WotReactionType { return o }
 
 var WotReactionTypeMap = map[string]WotReactionType{
-	"ACCEPT": 0,
-	"REJECT": 1,
+	"REJECT": 0,
+	"ACCEPT": 1,
 }
 
 var WotReactionTypeRevMap = map[WotReactionType]string{
-	0: "ACCEPT",
-	1: "REJECT",
+	0: "REJECT",
+	1: "ACCEPT",
 }
 
 func (e WotReactionType) String() string {

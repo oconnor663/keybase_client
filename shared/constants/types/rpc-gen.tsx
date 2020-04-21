@@ -2793,8 +2793,8 @@ export enum UserOrTeamResult {
 }
 
 export enum WotReactionType {
-  accept = 0,
-  reject = 1,
+  reject = 0,
+  accept = 1,
 }
 
 export enum WotStatusType {
