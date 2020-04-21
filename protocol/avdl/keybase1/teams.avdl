@@ -174,24 +174,6 @@ protocol teams {
     TeamRole role;
   }
 
-  record TeamMembersDetails {
-    array<TeamMemberDetails> owners;
-    array<TeamMemberDetails> admins;
-    array<TeamMemberDetails> writers;
-    array<TeamMemberDetails> readers;
-    array<TeamMemberDetails> bots;
-    array<TeamMemberDetails> restrictedBots;
-  }
-
-  record TeamDetails {
-    string name;
-    TeamMembersDetails members;
-    PerTeamKeyGeneration keyGeneration;
-    map<TeamInviteID,AnnotatedTeamInvite> annotatedActiveInvites;
-    TeamSettings settings;
-    TeamShowcase showcase;
-  }
-
   record TeamMemberRole {
     UID uid;
     string username;

@@ -51,6 +51,9 @@ func GetAnnotatedTeam(ctx context.Context, g *libkb.GlobalContext, teamID keybas
 		return res, err
 	}
 
+	members = membersFilterDeletedUsers(mctx.Ctx(), mctx.G(), members)
+	members = membersHideInactiveDuplicates(mctx.Ctx(), mctx.G(), members)
+
 	tracer.Stage("transitive subteams")
 	transitiveSubteamsUnverified, err := ListSubteamsUnverified(mctx, t.Data.Name)
 	if err != nil {
@@ -102,64 +105,6 @@ func GetAnnotatedTeamByName(ctx context.Context, g *libkb.GlobalContext, teamNam
 	return GetAnnotatedTeam(ctx, g, teamID)
 }
 
-// DetailsByID returns TeamDetails for team name. Keybase-type invites are
-// returned as members. It always repolls to ensure latest version of
-// a team, but member infos (username, full name, if they reset or not)
-// are subject to UIDMapper caching.
-// func DetailsByID(ctx context.Context, g *libkb.GlobalContext, id keybase1.TeamID) (res keybase1.TeamDetails, err error) {
-// 	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
-// 	defer tracer.Finish()
-
-// 	tracer.Stage("load team")
-// 	t, err := GetMaybeAdminByID(ctx, g, id, id.IsPublic())
-// 	if err != nil {
-// 		return res, err
-// 	}
-// 	return details(libkb.NewMetaContext(ctx, g), t, tracer)
-// }
-
-// // Details returns TeamDetails for team name. Keybase-type invites are
-// // returned as members. It always repolls to ensure latest version of
-// // a team, but member infos (username, full name, if they reset or not)
-// // are subject to UIDMapper caching.
-// func Details(ctx context.Context, g *libkb.GlobalContext, name string) (res keybase1.TeamDetails, err error) {
-// 	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
-// 	defer tracer.Finish()
-
-// 	// Assume private team
-// 	public := false
-
-// 	tracer.Stage("load team")
-// 	t, err := GetMaybeAdminByStringName(ctx, g, name, public)
-// 	if err != nil {
-// 		return res, err
-// 	}
-// 	return details(libkb.NewMetaContext(ctx, g), t, tracer)
-// }
-
-// func details(mctx libkb.MetaContext, t *Team, tracer profiling.TimeTracer) (res keybase1.TeamDetails, err error) {
-// 	res.KeyGeneration = t.Generation()
-// 	tracer.Stage("members")
-// 	// res.Members, err = MembersDetails(mctx.Ctx(), mctx.G(), t)
-// 	// if err != nil {
-// 	// 	return res, err
-// 	// }
-
-// 	tracer.Stage("invites")
-// 	res.AnnotatedActiveInvites, err = AnnotateInvitesNoPUKless(mctx, t, &res.Members)
-// 	if err != nil {
-// 		return res, err
-// 	}
-
-// 	membersHideDeletedUsers(mctx.Ctx(), mctx.G(), &res.Members)
-// 	membersHideInactiveDuplicates(mctx.Ctx(), mctx.G(), &res.Members)
-
-// 	res.Settings.Open = t.IsOpen()
-// 	res.Settings.JoinAs = t.chain().inner.OpenTeamJoinAs
-// 	res.Name = t.Name().String()
-// 	return res, nil
-// }
-
 // List all the admins of ancestor teams.
 // Includes admins of the specified team only if they are also admins of ancestor teams.
 func ImplicitAdmins(ctx context.Context, g *libkb.GlobalContext, teamID keybase1.TeamID) (res []keybase1.TeamMemberDetails, err error) {
@@ -176,63 +121,39 @@ func ImplicitAdmins(ctx context.Context, g *libkb.GlobalContext, teamID keybase1
 	return userVersionsToDetails(libkb.NewMetaContext(ctx, g), uvs, nil)
 }
 
-func membersHideDeletedUsers(ctx context.Context, g *libkb.GlobalContext, members *keybase1.TeamMembersDetails) {
-	lists := []*[]keybase1.TeamMemberDetails{
-		&members.Owners,
-		&members.Admins,
-		&members.Writers,
-		&members.Readers,
-		&members.Bots,
-		&members.RestrictedBots,
-	}
-	for _, rows := range lists {
-		filtered := []keybase1.TeamMemberDetails{}
-		for _, row := range *rows {
-			if row.Status != keybase1.TeamMemberStatus_DELETED {
-				filtered = append(filtered, row)
-			} else {
-				g.Log.CDebugf(ctx, "membersHideDeletedUsers filtered out row: %v %v", row.Uv, row.Status)
-			}
+func membersFilterDeletedUsers(ctx context.Context, g *libkb.GlobalContext, members []keybase1.TeamMemberDetails) (ret []keybase1.TeamMemberDetails) {
+	for _, member := range members {
+		if member.Status != keybase1.TeamMemberStatus_DELETED {
+			ret = append(ret, member)
+		} else {
+			g.Log.CDebugf(ctx, "membersHideDeletedUsers filtered out row: %v %v", member.Uv, member.Status)
 		}
-		*rows = filtered
 	}
+	return ret
 }
 
 // If a UID appears multiple times with different TeamMemberStatus, only show the 'ACTIVE' version.
 // This can happen when an owner resets and is re-added as an admin by an admin.
 // Mutates `members`
-func membersHideInactiveDuplicates(ctx context.Context, g *libkb.GlobalContext, members *keybase1.TeamMembersDetails) {
+func membersHideInactiveDuplicates(ctx context.Context, g *libkb.GlobalContext, members []keybase1.TeamMemberDetails) (ret []keybase1.TeamMemberDetails) {
 	// If a UID appears multiple times with different TeamMemberStatus, only show the 'ACTIVE' version.
 	// This can happen when an owner resets and is re-added as an admin by an admin.
 	seenActive := make(map[keybase1.UID]bool)
-	lists := []*[]keybase1.TeamMemberDetails{
-		&members.Owners,
-		&members.Admins,
-		&members.Writers,
-		&members.Readers,
-		&members.Bots,
-		&members.RestrictedBots,
-	}
 	// Scan for active rows
-	for _, rows := range lists {
-		for _, row := range *rows {
-			if row.Status == keybase1.TeamMemberStatus_ACTIVE {
-				seenActive[row.Uv.Uid] = true
-			}
+	for _, member := range members {
+		if member.Status == keybase1.TeamMemberStatus_ACTIVE {
+			seenActive[member.Uv.Uid] = true
 		}
 	}
 	// Filter out superseded inactive rows
-	for _, rows := range lists {
-		filtered := []keybase1.TeamMemberDetails{}
-		for _, row := range *rows {
-			if row.Status == keybase1.TeamMemberStatus_ACTIVE || !seenActive[row.Uv.Uid] {
-				filtered = append(filtered, row)
-			} else {
-				g.Log.CDebugf(ctx, "membersHideInactiveDuplicates filtered out row: %v %v", row.Uv, row.Status)
-			}
+	for _, member := range members {
+		if member.Status == keybase1.TeamMemberStatus_ACTIVE || !seenActive[member.Uv.Uid] {
+			ret = append(ret, member)
+		} else {
+			g.Log.CDebugf(ctx, "membersHideInactiveDuplicates filtered out row: %v %v", member.Uv, member.Status)
 		}
-		*rows = filtered
 	}
+	return ret
 }
 
 func MembersDetails(ctx context.Context, g *libkb.GlobalContext, t *Team) (ret []keybase1.TeamMemberDetails, err error) {
