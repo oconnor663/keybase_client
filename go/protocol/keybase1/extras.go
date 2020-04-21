@@ -2714,6 +2714,14 @@ func (e TeamInviteMaxUses) IsUsedUp(alreadyUsed int) bool {
 	return alreadyUsed >= int(e)
 }
 
+func (ti TeamInvite) IsExpired(now time.Time) bool {
+	if ti.Etime == nil {
+		return false
+	}
+	etime := FromUnixTime(*ti.Etime)
+	return now.After(etime)
+}
+
 func (m MemberInfo) TeamName() (TeamName, error) {
 	return TeamNameFromString(m.FqName)
 }

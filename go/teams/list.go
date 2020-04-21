@@ -493,18 +493,7 @@ func ComputeInvitelinkDisplayName(mctx libkb.MetaContext, team *Team, invite key
 	return name, nil
 }
 
-func addKeybaseInviteToRes(ctx context.Context, memb keybase1.TeamMemberDetails,
-	membs []keybase1.TeamMemberDetails) []keybase1.TeamMemberDetails {
-	for idx, existing := range membs {
-		if memb.Uv.Uid.Equal(existing.Uv.Uid) && !existing.Status.IsActive() {
-			membs[idx] = memb
-			return membs
-		}
-	}
-	return append(membs, memb)
-}
-
-func AnnotateTeamUsedInviteLogPoints(points []keybase1.TeamUsedInviteLogPoint, namePkgs map[keybase1.UID]libkb.UsernamePackage) (ret []keybase1.AnnotatedTeamUsedInviteLogPoint) {
+func annotateTeamUsedInviteLogPoints(points []keybase1.TeamUsedInviteLogPoint, namePkgs map[keybase1.UID]libkb.UsernamePackage) (ret []keybase1.AnnotatedTeamUsedInviteLogPoint) {
 	for _, point := range points {
 		username := namePkgs[point.Uv.Uid].NormalizedUsername
 		ret = append(ret, keybase1.AnnotatedTeamUsedInviteLogPoint{TeamUsedInviteLogPoint: point, Username: username.String()})
@@ -512,19 +501,54 @@ func AnnotateTeamUsedInviteLogPoints(points []keybase1.TeamUsedInviteLogPoint, n
 	return ret
 }
 
-type AnnotatedInviteMap map[keybase1.TeamInviteID]keybase1.AnnotatedTeamInvite
+// GetAnnotatedInvitesAndMembersForUI returns annotated invites and members lists from the sigchain,
+// except that Keybase-type invites are treated as team members. This is for the purpose of
+// collecting them together in the UI.
+func GetAnnotatedInvitesAndMembersForUI(mctx libkb.MetaContext, team *Team,
+) (members []keybase1.TeamMemberDetails, annotatedInvites []keybase1.AnnotatedTeamInvite, err error) {
 
-// AnnotateInvitesNoPUKless annotates team invites using UIDMapper, so it's
-// fast but may be wrong/stale regarding full names.
-// The function will add in PUKless invites to the members struct, which is
-// passed by pointer (if not nil), and will not include them in the returned map.
-func AnnotateInvitesNoPUKless(mctx libkb.MetaContext, team *Team,
-	members *keybase1.TeamMembersDetails) (AnnotatedInviteMap, error) {
+	allAnnotatedInvites, err := getAnnotatedInvites(mctx, team)
+	if err != nil {
+		return nil, nil, err
+	}
+	members, err = MembersDetails(mctx.Ctx(), mctx.G(), team)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	inviteMDs := team.chain().ActiveInvites()
-	annotatedInvites := make(map[keybase1.TeamInviteID]keybase1.AnnotatedTeamInvite, len(inviteMDs))
+	for _, annotatedInvite := range allAnnotatedInvites {
+		inviteC, err := annotatedInvite.InviteMetadata.Invite.Type.C()
+		if err != nil {
+			return nil, nil, err
+		}
+		extC, err := annotatedInvite.InviteExt.C()
+		if err != nil {
+			return nil, nil, err
+		}
+		if inviteC != extC {
+			return nil, nil, fmt.Errorf("got invite category %v from invite but %v from inviteExt", inviteC, extC)
+		}
+		if inviteC == keybase1.TeamInviteCategory_KEYBASE {
+			keybaseExt := annotatedInvite.InviteExt.Keybase()
+			members = append(members, keybase1.TeamMemberDetails{
+				Uv:       keybaseExt.InviteeUv,
+				Username: keybaseExt.Username,
+				NeedsPUK: true,
+				FullName: keybaseExt.FullName,
+				Status:   keybaseExt.Status,
+			})
+		} else {
+			annotatedInvites = append(annotatedInvites, annotatedInvite)
+		}
+	}
+
+	return members, annotatedInvites, nil
+}
+
+func getAnnotatedInvites(mctx libkb.MetaContext, team *Team) (annotatedInvites []keybase1.AnnotatedTeamInvite, err error) {
+	inviteMDs := team.chain().inner.InviteMetadatas
 	if len(inviteMDs) == 0 {
-		return annotatedInvites, nil
+		return nil, nil
 	}
 
 	// UID list to pass to UIDMapper to get full names. Duplicate UIDs
@@ -554,7 +578,7 @@ func AnnotateInvitesNoPUKless(mctx libkb.MetaContext, team *Team,
 		defaultNetworkTimeBudget, true)
 	if err != nil {
 		// UIDMap returned an error, but there may be useful data in the result.
-		mctx.Debug("AnnotateInvitesNoPUKless: MapUIDsReturnMap returned: %v", err)
+		mctx.Debug("AnnotateInvites: MapUIDsReturnMap failed: %s", err)
 	}
 
 	teamName := team.Name().String()
@@ -562,30 +586,27 @@ func AnnotateInvitesNoPUKless(mctx libkb.MetaContext, team *Team,
 		invite := inviteMD.Invite
 		inviterUsername := namePkgs[invite.Inviter.Uid].NormalizedUsername
 
-		// default displayName; overridden by some invite types later
-		// kept the same for emails and phones
-		displayName := keybase1.TeamInviteDisplayName(invite.Name)
-
 		category, err := invite.Type.C()
 		if err != nil {
 			return nil, err
 		}
-		var uv keybase1.UserVersion
-		var status *keybase1.TeamMemberStatus
+		// defaults; overridden by some invite types later
+		inviteExt := keybase1.NewAnnotatedTeamInviteExtDefault(category)
+		displayName := keybase1.TeamInviteDisplayName(invite.Name)
 		switch category {
 		case keybase1.TeamInviteCategory_SBS:
 			displayName = keybase1.TeamInviteDisplayName(fmt.Sprintf("%s@%s", invite.Name, string(invite.Type.Sbs())))
 		case keybase1.TeamInviteCategory_KEYBASE:
 			// "keybase" invites (i.e. pukless users) have user version for name
-			uv, err := invite.KeybaseUserVersion()
+			inviteeUV, err := invite.KeybaseUserVersion()
 			if err != nil {
 				return nil, err
 			}
-			pkg := namePkgs[uv.Uid]
+			pkg := namePkgs[inviteeUV.Uid]
 			status := keybase1.TeamMemberStatus_ACTIVE
 			var fullName keybase1.FullName
 			if pkg.FullName != nil {
-				if pkg.FullName.EldestSeqno != uv.EldestSeqno {
+				if pkg.FullName.EldestSeqno != inviteeUV.EldestSeqno {
 					status = keybase1.TeamMemberStatus_RESET
 				}
 				if pkg.FullName.Status == keybase1.StatusCode_SCDeleted {
@@ -595,31 +616,16 @@ func AnnotateInvitesNoPUKless(mctx libkb.MetaContext, team *Team,
 			}
 
 			if pkg.NormalizedUsername.IsNil() {
-				return nil, fmt.Errorf("failed to get username from UIDMapper for uv %v", uv)
+				return nil, fmt.Errorf("failed to get username from UIDMapper for uv %v", inviteeUV)
 			}
 
-			details := keybase1.TeamMemberDetails{
-				Uv:       uv,
-				Username: pkg.NormalizedUsername.String(),
-				NeedsPUK: true,
-				FullName: fullName,
-				Status:   status,
-			}
-
-			if members != nil {
-				switch invite.Role {
-				case keybase1.TeamRole_OWNER:
-					members.Owners = addKeybaseInviteToRes(mctx.Ctx(), details, members.Owners)
-				case keybase1.TeamRole_ADMIN:
-					members.Admins = addKeybaseInviteToRes(mctx.Ctx(), details, members.Admins)
-				case keybase1.TeamRole_WRITER:
-					members.Writers = addKeybaseInviteToRes(mctx.Ctx(), details, members.Writers)
-				case keybase1.TeamRole_READER:
-					members.Readers = addKeybaseInviteToRes(mctx.Ctx(), details, members.Readers)
-				}
-			}
-			// Continue to skip adding this invite to annotatedInvites
-			continue
+			displayName = keybase1.TeamInviteDisplayName(pkg.NormalizedUsername.String())
+			inviteExt = keybase1.NewAnnotatedTeamInviteExtWithKeybase(keybase1.KeybaseInviteExt{
+				InviteeUv: inviteeUV,
+				Status:    status,
+				FullName:  fullName,
+				Username:  pkg.NormalizedUsername.String(),
+			})
 		case keybase1.TeamInviteCategory_SEITAN:
 			displayName, err = ComputeSeitanInviteDisplayName(mctx.Ctx(), team, invite)
 			if err != nil {
@@ -635,18 +641,21 @@ func AnnotateInvitesNoPUKless(mctx libkb.MetaContext, team *Team,
 				mctx.Warning("error annotating invitelink (%v): %v", invite.Id, err)
 				continue
 			}
+			inviteExt = keybase1.NewAnnotatedTeamInviteExtWithInvitelink(keybase1.InvitelinkInviteExt{
+				IsExpired:            inviteMD.Invite.IsExpired(mctx.G().Clock().Now()),
+				IsUsedUp:             inviteMD.Invite.MaxUses.IsUsedUp(len(inviteMD.UsedInvites)),
+				AnnotatedUsedInvites: annotateTeamUsedInviteLogPoints(inviteMD.UsedInvites, namePkgs),
+			})
 		default:
 		}
 
-		annotatedInvites[invite.Id] = keybase1.AnnotatedTeamInvite{
-			InviteMetadata:       inviteMD,
-			DisplayName:          displayName,
-			InviteeUv:            uv,
-			InviterUsername:      inviterUsername.String(),
-			TeamName:             teamName,
-			Status:               status,
-			AnnotatedUsedInvites: AnnotateTeamUsedInviteLogPoints(inviteMD.UsedInvites, namePkgs),
-		}
+		annotatedInvites = append(annotatedInvites, keybase1.AnnotatedTeamInvite{
+			InviteMetadata:  inviteMD,
+			DisplayName:     displayName,
+			InviterUsername: inviterUsername.String(),
+			TeamName:        teamName,
+			InviteExt:       inviteExt,
+		})
 	}
 
 	return annotatedInvites, nil

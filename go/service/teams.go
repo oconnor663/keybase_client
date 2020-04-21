@@ -7,9 +7,10 @@ package service
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/go-errors/errors"
 	"github.com/keybase/client/go/protocol/gregor1"
-	"time"
 
 	"github.com/keybase/client/go/kbtime"
 
@@ -205,24 +206,26 @@ func (h *TeamsHandler) TeamCreateWithSettings(ctx context.Context, arg keybase1.
 func (h *TeamsHandler) TeamGet(ctx context.Context, arg keybase1.TeamGetArg) (res keybase1.TeamDetails, err error) {
 	ctx = libkb.WithLogTag(ctx, "TM")
 	defer h.G().CTrace(ctx, fmt.Sprintf("TeamGet(%s)", arg.Name), &err)()
+	return res, err
 
-	res, err = teams.Details(ctx, h.G().ExternalG(), arg.Name)
-	if err != nil {
-		return res, err
-	}
-	return h.teamGet(ctx, res, arg.Name)
+	// res, err = teams.Details(ctx, h.G().ExternalG(), arg.Name)
+	// if err != nil {
+	// 	return res, err
+	// }
+	// return h.teamGet(ctx, res, arg.Name)
 }
 
-func (h *TeamsHandler) TeamGetByID(ctx context.Context, arg keybase1.TeamGetByIDArg) (res keybase1.TeamDetails, err error) {
-	ctx = libkb.WithLogTag(ctx, "TM")
-	defer h.G().CTrace(ctx, fmt.Sprintf("TeamGetByID(%s)", arg.Id), &err)()
+// func (h *TeamsHandler) TeamGetByID(ctx context.Context, arg keybase1.TeamGetByIDArg) (res keybase1.TeamDetails, err error) {
+// 	ctx = libkb.WithLogTag(ctx, "TM")
+// 	defer h.G().CTrace(ctx, fmt.Sprintf("TeamGetByID(%s)", arg.Id), &err)()
+// 	return res, err
 
-	res, err = teams.DetailsByID(ctx, h.G().ExternalG(), arg.Id)
-	if err != nil {
-		return res, err
-	}
-	return h.teamGet(ctx, res, arg.Id.String())
-}
+// 	// res, err = teams.DetailsByID(ctx, h.G().ExternalG(), arg.Id)
+// 	// if err != nil {
+// 	// 	return res, err
+// 	// }
+// 	// return h.teamGet(ctx, res, arg.Id.String())
+// }
 
 func (h *TeamsHandler) GetAnnotatedTeam(ctx context.Context, arg keybase1.TeamID) (res keybase1.AnnotatedTeam, err error) {
 	ctx = libkb.WithLogTag(ctx, "TM")
@@ -243,25 +246,27 @@ func (h *TeamsHandler) teamGet(ctx context.Context, details keybase1.TeamDetails
 func (h *TeamsHandler) TeamGetMembersByID(ctx context.Context, arg keybase1.TeamGetMembersByIDArg) (res keybase1.TeamMembersDetails, err error) {
 	ctx = libkb.WithLogTag(ctx, "TM")
 	defer h.G().CTrace(ctx, fmt.Sprintf("TeamGetMembersByID(%s)", arg.Id), &err)()
-	t, err := teams.Load(ctx, h.G().ExternalG(), keybase1.LoadTeamArg{
-		ID: arg.Id,
-	})
-	if err != nil {
-		return res, err
-	}
-	return teams.MembersDetails(ctx, h.G().ExternalG(), t)
+	// t, err := teams.Load(ctx, h.G().ExternalG(), keybase1.LoadTeamArg{
+	// 	ID: arg.Id,
+	// })
+	return res, err
+	// if err != nil {
+	// 	return res, err
+	// }
+	// return teams.MembersDetails(ctx, h.G().ExternalG(), t)
 }
 
 func (h *TeamsHandler) TeamGetMembers(ctx context.Context, arg keybase1.TeamGetMembersArg) (res keybase1.TeamMembersDetails, err error) {
 	ctx = libkb.WithLogTag(ctx, "TM")
 	defer h.G().CTrace(ctx, fmt.Sprintf("TeamGetMembers(%s)", arg.Name), &err)()
-	t, err := teams.Load(ctx, h.G().ExternalG(), keybase1.LoadTeamArg{
-		Name: arg.Name,
-	})
-	if err != nil {
-		return res, err
-	}
-	return teams.MembersDetails(ctx, h.G().ExternalG(), t)
+	return res, err
+	// t, err := teams.Load(ctx, h.G().ExternalG(), keybase1.LoadTeamArg{
+	// 	Name: arg.Name,
+	// })
+	// if err != nil {
+	// 	return res, err
+	// }
+	// return teams.MembersDetails(ctx, h.G().ExternalG(), t)
 }
 
 func (h *TeamsHandler) TeamImplicitAdmins(ctx context.Context, arg keybase1.TeamImplicitAdminsArg) (res []keybase1.TeamMemberDetails, err error) {

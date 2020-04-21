@@ -171,6 +171,7 @@ protocol teams {
     boolean needsPUK;
     TeamMemberStatus status;
     union { null, Time } joinTime; // last time the user joined the team
+    TeamRole role;
   }
 
   record TeamMembersDetails {
@@ -655,7 +656,9 @@ protocol teams {
   }
   record KeybaseInviteExt {
     UserVersion inviteeUv;
-    union { null, TeamMemberStatus } status;
+    TeamMemberStatus status;
+    FullName fullName;
+    string username;
   }
   record InvitelinkInviteExt {
     // isExpired should be used to infer expiration because the service's client's clock may
@@ -1346,6 +1349,10 @@ protocol teams {
 
   // A user can hope for success if and only if they are a member of
   // the team or an admin of any of its ancestors.
+  TeamDetails teamGetByID(int sessionID, TeamID id);
+
+  // A user can hope for success if and only if they are a member of
+  // the team or an admin of any of its ancestors.
   TeamDetails teamGet(int sessionID, string name);
 
   // Get the members of the team
@@ -1695,11 +1702,6 @@ protocol teams {
     UserTeamVersion version;
   }
 
-  record AnnotatedTeamMemberDetails {
-    TeamMemberDetails details;
-    TeamRole role;
-  }
-
   record AnnotatedTeam {
     TeamID teamID;
     string name;
@@ -1708,12 +1710,13 @@ protocol teams {
     // memberships.
     SubteamListResult transitiveSubteamsUnverified;
 
-    array<AnnotatedTeamMemberDetails> members;
+    array<TeamMemberDetails> members;
     array<AnnotatedTeamInvite> invites;
-    array<TeamJoinRequest> joinRequests;
-
-    boolean tarsDisabled;
     TeamSettings settings;
+
+    // admins only
+    union { null, array<TeamJoinRequest> } joinRequests;
+    union { null, boolean } tarsDisabled;
   }
 
   AnnotatedTeam getAnnotatedTeam(TeamID teamID);

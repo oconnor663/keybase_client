@@ -351,6 +351,10 @@
             "Time"
           ],
           "name": "joinTime"
+        },
+        {
+          "type": "TeamRole",
+          "name": "role"
         }
       ]
     },
@@ -1408,11 +1412,16 @@
           "name": "inviteeUv"
         },
         {
-          "type": [
-            null,
-            "TeamMemberStatus"
-          ],
+          "type": "TeamMemberStatus",
           "name": "status"
+        },
+        {
+          "type": "FullName",
+          "name": "fullName"
+        },
+        {
+          "type": "string",
+          "name": "username"
         }
       ]
     },
@@ -1423,6 +1432,10 @@
         {
           "type": "boolean",
           "name": "isExpired"
+        },
+        {
+          "type": "string",
+          "name": "expirationDeltaFormatted"
         },
         {
           "type": "boolean",
@@ -3621,20 +3634,6 @@
     },
     {
       "type": "record",
-      "name": "AnnotatedTeamMemberDetails",
-      "fields": [
-        {
-          "type": "TeamMemberDetails",
-          "name": "details"
-        },
-        {
-          "type": "TeamRole",
-          "name": "role"
-        }
-      ]
-    },
-    {
-      "type": "record",
       "name": "AnnotatedTeam",
       "fields": [
         {
@@ -3652,7 +3651,7 @@
         {
           "type": {
             "type": "array",
-            "items": "AnnotatedTeamMemberDetails"
+            "items": "TeamMemberDetails"
           },
           "name": "members"
         },
@@ -3664,23 +3663,25 @@
           "name": "invites"
         },
         {
-          "type": {
-            "type": "array",
-            "items": "TeamJoinRequest"
-          },
-          "name": "joinRequests"
-        },
-        {
-          "type": "boolean",
-          "name": "tarsDisabled"
-        },
-        {
           "type": "TeamSettings",
           "name": "settings"
         },
         {
-          "type": "TeamShowcase",
-          "name": "showcase"
+          "type": [
+            null,
+            {
+              "type": "array",
+              "items": "TeamJoinRequest"
+            }
+          ],
+          "name": "joinRequests"
+        },
+        {
+          "type": [
+            null,
+            "boolean"
+          ],
+          "name": "tarsDisabled"
         }
       ]
     },

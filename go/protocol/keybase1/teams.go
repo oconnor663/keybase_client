@@ -504,6 +504,7 @@ type TeamMemberDetails struct {
 	NeedsPUK bool             `codec:"needsPUK" json:"needsPUK"`
 	Status   TeamMemberStatus `codec:"status" json:"status"`
 	JoinTime *Time            `codec:"joinTime,omitempty" json:"joinTime,omitempty"`
+	Role     TeamRole         `codec:"role" json:"role"`
 }
 
 func (o TeamMemberDetails) DeepCopy() TeamMemberDetails {
@@ -520,6 +521,7 @@ func (o TeamMemberDetails) DeepCopy() TeamMemberDetails {
 			tmp := (*x).DeepCopy()
 			return &tmp
 		})(o.JoinTime),
+		Role: o.Role.DeepCopy(),
 	}
 }
 
@@ -1785,33 +1787,33 @@ func (o AnnotatedTeamInvite) DeepCopy() AnnotatedTeamInvite {
 }
 
 type KeybaseInviteExt struct {
-	InviteeUv UserVersion       `codec:"inviteeUv" json:"inviteeUv"`
-	Status    *TeamMemberStatus `codec:"status,omitempty" json:"status,omitempty"`
+	InviteeUv UserVersion      `codec:"inviteeUv" json:"inviteeUv"`
+	Status    TeamMemberStatus `codec:"status" json:"status"`
+	FullName  FullName         `codec:"fullName" json:"fullName"`
+	Username  string           `codec:"username" json:"username"`
 }
 
 func (o KeybaseInviteExt) DeepCopy() KeybaseInviteExt {
 	return KeybaseInviteExt{
 		InviteeUv: o.InviteeUv.DeepCopy(),
-		Status: (func(x *TeamMemberStatus) *TeamMemberStatus {
-			if x == nil {
-				return nil
-			}
-			tmp := (*x).DeepCopy()
-			return &tmp
-		})(o.Status),
+		Status:    o.Status.DeepCopy(),
+		FullName:  o.FullName.DeepCopy(),
+		Username:  o.Username,
 	}
 }
 
 type InvitelinkInviteExt struct {
-	IsExpired            bool                              `codec:"isExpired" json:"isExpired"`
-	IsUsedUp             bool                              `codec:"isUsedUp" json:"isUsedUp"`
-	AnnotatedUsedInvites []AnnotatedTeamUsedInviteLogPoint `codec:"annotatedUsedInvites" json:"annotatedUsedInvites"`
+	IsExpired                bool                              `codec:"isExpired" json:"isExpired"`
+	ExpirationDeltaFormatted string                            `codec:"expirationDeltaFormatted" json:"expirationDeltaFormatted"`
+	IsUsedUp                 bool                              `codec:"isUsedUp" json:"isUsedUp"`
+	AnnotatedUsedInvites     []AnnotatedTeamUsedInviteLogPoint `codec:"annotatedUsedInvites" json:"annotatedUsedInvites"`
 }
 
 func (o InvitelinkInviteExt) DeepCopy() InvitelinkInviteExt {
 	return InvitelinkInviteExt{
-		IsExpired: o.IsExpired,
-		IsUsedUp:  o.IsUsedUp,
+		IsExpired:                o.IsExpired,
+		ExpirationDeltaFormatted: o.ExpirationDeltaFormatted,
+		IsUsedUp:                 o.IsUsedUp,
 		AnnotatedUsedInvites: (func(x []AnnotatedTeamUsedInviteLogPoint) []AnnotatedTeamUsedInviteLogPoint {
 			if x == nil {
 				return nil
@@ -4183,28 +4185,15 @@ func (o UserTeamVersionUpdate) DeepCopy() UserTeamVersionUpdate {
 	}
 }
 
-type AnnotatedTeamMemberDetails struct {
-	Details TeamMemberDetails `codec:"details" json:"details"`
-	Role    TeamRole          `codec:"role" json:"role"`
-}
-
-func (o AnnotatedTeamMemberDetails) DeepCopy() AnnotatedTeamMemberDetails {
-	return AnnotatedTeamMemberDetails{
-		Details: o.Details.DeepCopy(),
-		Role:    o.Role.DeepCopy(),
-	}
-}
-
 type AnnotatedTeam struct {
-	TeamID                       TeamID                       `codec:"teamID" json:"teamID"`
-	Name                         string                       `codec:"name" json:"name"`
-	TransitiveSubteamsUnverified SubteamListResult            `codec:"transitiveSubteamsUnverified" json:"transitiveSubteamsUnverified"`
-	Members                      []AnnotatedTeamMemberDetails `codec:"members" json:"members"`
-	Invites                      []AnnotatedTeamInvite        `codec:"invites" json:"invites"`
-	JoinRequests                 []TeamJoinRequest            `codec:"joinRequests" json:"joinRequests"`
-	TarsDisabled                 bool                         `codec:"tarsDisabled" json:"tarsDisabled"`
-	Settings                     TeamSettings                 `codec:"settings" json:"settings"`
-	Showcase                     TeamShowcase                 `codec:"showcase" json:"showcase"`
+	TeamID                       TeamID                `codec:"teamID" json:"teamID"`
+	Name                         string                `codec:"name" json:"name"`
+	TransitiveSubteamsUnverified SubteamListResult     `codec:"transitiveSubteamsUnverified" json:"transitiveSubteamsUnverified"`
+	Members                      []TeamMemberDetails   `codec:"members" json:"members"`
+	Invites                      []AnnotatedTeamInvite `codec:"invites" json:"invites"`
+	Settings                     TeamSettings          `codec:"settings" json:"settings"`
+	JoinRequests                 *[]TeamJoinRequest    `codec:"joinRequests,omitempty" json:"joinRequests,omitempty"`
+	TarsDisabled                 *bool                 `codec:"tarsDisabled,omitempty" json:"tarsDisabled,omitempty"`
 }
 
 func (o AnnotatedTeam) DeepCopy() AnnotatedTeam {
@@ -4212,11 +4201,11 @@ func (o AnnotatedTeam) DeepCopy() AnnotatedTeam {
 		TeamID:                       o.TeamID.DeepCopy(),
 		Name:                         o.Name,
 		TransitiveSubteamsUnverified: o.TransitiveSubteamsUnverified.DeepCopy(),
-		Members: (func(x []AnnotatedTeamMemberDetails) []AnnotatedTeamMemberDetails {
+		Members: (func(x []TeamMemberDetails) []TeamMemberDetails {
 			if x == nil {
 				return nil
 			}
-			ret := make([]AnnotatedTeamMemberDetails, len(x))
+			ret := make([]TeamMemberDetails, len(x))
 			for i, v := range x {
 				vCopy := v.DeepCopy()
 				ret[i] = vCopy
@@ -4234,20 +4223,31 @@ func (o AnnotatedTeam) DeepCopy() AnnotatedTeam {
 			}
 			return ret
 		})(o.Invites),
-		JoinRequests: (func(x []TeamJoinRequest) []TeamJoinRequest {
+		Settings: o.Settings.DeepCopy(),
+		JoinRequests: (func(x *[]TeamJoinRequest) *[]TeamJoinRequest {
 			if x == nil {
 				return nil
 			}
-			ret := make([]TeamJoinRequest, len(x))
-			for i, v := range x {
-				vCopy := v.DeepCopy()
-				ret[i] = vCopy
-			}
-			return ret
+			tmp := (func(x []TeamJoinRequest) []TeamJoinRequest {
+				if x == nil {
+					return nil
+				}
+				ret := make([]TeamJoinRequest, len(x))
+				for i, v := range x {
+					vCopy := v.DeepCopy()
+					ret[i] = vCopy
+				}
+				return ret
+			})((*x))
+			return &tmp
 		})(o.JoinRequests),
-		TarsDisabled: o.TarsDisabled,
-		Settings:     o.Settings.DeepCopy(),
-		Showcase:     o.Showcase.DeepCopy(),
+		TarsDisabled: (func(x *bool) *bool {
+			if x == nil {
+				return nil
+			}
+			tmp := (*x)
+			return &tmp
+		})(o.TarsDisabled),
 	}
 }
 

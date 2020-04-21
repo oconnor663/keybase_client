@@ -13,7 +13,6 @@ import (
 	"github.com/keybase/client/go/engine"
 	"github.com/keybase/client/go/kbun"
 	"github.com/keybase/client/go/libkb"
-	"github.com/keybase/client/go/profiling"
 	"github.com/keybase/client/go/protocol/keybase1"
 )
 
@@ -34,155 +33,119 @@ func LoadTeamPlusApplicationKeys(ctx context.Context, g *libkb.GlobalContext, id
 // GetAnnotatedTeam bundles up various data, both on and off chain, about a
 // specific team for consumption by the GUI. In particular, it supplies almost all of the information on a team's
 // subpage in the Teams tab
-func GetAnnotatedTeam(ctx context.Context, g *libkb.GlobalContext, id keybase1.TeamID) (res keybase1.AnnotatedTeam, err error) {
+func GetAnnotatedTeam(ctx context.Context, g *libkb.GlobalContext, teamID keybase1.TeamID) (res keybase1.AnnotatedTeam, err error) {
 	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
 	defer tracer.Finish()
 
 	mctx := libkb.NewMetaContext(ctx, g)
 
 	tracer.Stage("load team")
-	t, err := GetMaybeAdminByID(ctx, g, id, id.IsPublic())
+	t, err := GetMaybeAdminByID(ctx, g, teamID, teamID.IsPublic())
 	if err != nil {
 		return res, err
 	}
 
-	members, err = MembersDetails(ctx, g, t)
+	tracer.Stage("members & invites")
+	members, annotatedInvites, err := GetAnnotatedInvitesAndMembersForUI(mctx, t)
 	if err != nil {
 		return res, err
 	}
+
+	tracer.Stage("transitive subteams")
+	transitiveSubteamsUnverified, err := ListSubteamsUnverified(mctx, t.Data.Name)
+	if err != nil {
+		return res, err
+	}
+
+	teamNameStr := t.Data.Name.String()
+	myRole, err := t.myRole(ctx)
+	if err != nil {
+		return res, err
+	}
+	var maybeJoinRequests *[]keybase1.TeamJoinRequest
+	var maybeTARsDisabled *bool
+	if myRole.IsOrAbove(keybase1.TeamRole_ADMIN) {
+		joinRequests, err := ListRequests(ctx, g, &teamNameStr)
+		if err != nil {
+			return res, err
+		}
+		maybeJoinRequests = &joinRequests
+		tarsDisabled, err := GetTarsDisabled(ctx, g, teamID)
+		if err != nil {
+			return res, err
+		}
+		maybeTARsDisabled = &tarsDisabled
+	}
+
 	return keybase1.AnnotatedTeam{
-		Members: members,
+		TeamID:                       teamID,
+		Name:                         t.Data.Name.String(),
+		TransitiveSubteamsUnverified: transitiveSubteamsUnverified,
+		Members:                      members,
+		Invites:                      annotatedInvites,
+		Settings:                     t.Settings(),
+		JoinRequests:                 maybeJoinRequests,
+		TarsDisabled:                 maybeTARsDisabled,
 	}, nil
-
-	// transitiveSubteamsUnverified, err := ListSubteamsUnverified(mctx, t.Data.Name)
-	// if err != nil {
-	// 	return res, err
-	// }
-
-	// var members []keybase1.AnnotatedTeamMemberDetails
-	// for _, details := range det.Members.Owners {
-	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_OWNER})
-	// }
-	// for _, details := range det.Members.Admins {
-	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_ADMIN})
-	// }
-	// for _, details := range det.Members.Writers {
-	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_WRITER})
-	// }
-	// for _, details := range det.Members.Readers {
-	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_READER})
-	// }
-	// for _, details := range det.Members.Bots {
-	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_BOT})
-	// }
-	// for _, details := range det.Members.RestrictedBots {
-	// 	members = append(members, keybase1.AnnotatedTeamMemberDetails{Details: details, Role: keybase1.TeamRole_RESTRICTEDBOT})
-	// }
-
-	// var invites []keybase1.AnnotatedTeamInvite
-	// for _, invite := range det.AnnotatedActiveInvites {
-	// 	invites = append(invites, invite)
-	// }
-
-	// name := t.Data.Name.String()
-	// myRole, err := t.myRole(ctx)
-	// var isAdmin bool
-	// if err != nil {
-	// 	g.Log.CDebugf(ctx, "Error getting role; skipping getting requests: %v", err)
-	// } else {
-	// 	isAdmin = myRole.IsOrAbove(keybase1.TeamRole_ADMIN)
-	// }
-	// var joinRequests []keybase1.TeamJoinRequest
-	// var tarsDisabled bool
-	// if isAdmin {
-	// 	joinRequests, err = ListRequests(ctx, g, &name)
-	// 	if err != nil {
-	// 		return res, err
-	// 	}
-	// 	tarsDisabled, err = GetTarsDisabled(ctx, g, id)
-	// 	if err != nil {
-	// 		return res, err
-	// 	}
-	// }
-
-	// showcase, err := GetTeamShowcase(ctx, g, id)
-	// if err != nil {
-	// 	return res, err
-	// }
-
-	// res = keybase1.AnnotatedTeam{
-	// 	TeamID:                       id,
-	// 	Name:                         t.Data.Name.String(),
-	// 	TransitiveSubteamsUnverified: transitiveSubteamsUnverified,
-
-	// 	Members:      members,
-	// 	Invites:      invites,
-	// 	JoinRequests: joinRequests,
-
-	// 	TarsDisabled: tarsDisabled,
-	// 	Settings:     det.Settings,
-	// 	Showcase:     showcase,
-	// }
-	// return res, nil
 }
 
 // DetailsByID returns TeamDetails for team name. Keybase-type invites are
 // returned as members. It always repolls to ensure latest version of
 // a team, but member infos (username, full name, if they reset or not)
 // are subject to UIDMapper caching.
-func DetailsByID(ctx context.Context, g *libkb.GlobalContext, id keybase1.TeamID) (res keybase1.TeamDetails, err error) {
-	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
-	defer tracer.Finish()
+// func DetailsByID(ctx context.Context, g *libkb.GlobalContext, id keybase1.TeamID) (res keybase1.TeamDetails, err error) {
+// 	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
+// 	defer tracer.Finish()
 
-	tracer.Stage("load team")
-	t, err := GetMaybeAdminByID(ctx, g, id, id.IsPublic())
-	if err != nil {
-		return res, err
-	}
-	return details(libkb.NewMetaContext(ctx, g), t, tracer)
-}
+// 	tracer.Stage("load team")
+// 	t, err := GetMaybeAdminByID(ctx, g, id, id.IsPublic())
+// 	if err != nil {
+// 		return res, err
+// 	}
+// 	return details(libkb.NewMetaContext(ctx, g), t, tracer)
+// }
 
-// Details returns TeamDetails for team name. Keybase-type invites are
-// returned as members. It always repolls to ensure latest version of
-// a team, but member infos (username, full name, if they reset or not)
-// are subject to UIDMapper caching.
-func Details(ctx context.Context, g *libkb.GlobalContext, name string) (res keybase1.TeamDetails, err error) {
-	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
-	defer tracer.Finish()
+// // Details returns TeamDetails for team name. Keybase-type invites are
+// // returned as members. It always repolls to ensure latest version of
+// // a team, but member infos (username, full name, if they reset or not)
+// // are subject to UIDMapper caching.
+// func Details(ctx context.Context, g *libkb.GlobalContext, name string) (res keybase1.TeamDetails, err error) {
+// 	tracer := g.CTimeTracer(ctx, "TeamDetails", true)
+// 	defer tracer.Finish()
 
-	// Assume private team
-	public := false
+// 	// Assume private team
+// 	public := false
 
-	tracer.Stage("load team")
-	t, err := GetMaybeAdminByStringName(ctx, g, name, public)
-	if err != nil {
-		return res, err
-	}
-	return details(libkb.NewMetaContext(ctx, g), t, tracer)
-}
+// 	tracer.Stage("load team")
+// 	t, err := GetMaybeAdminByStringName(ctx, g, name, public)
+// 	if err != nil {
+// 		return res, err
+// 	}
+// 	return details(libkb.NewMetaContext(ctx, g), t, tracer)
+// }
 
-func details(mctx libkb.MetaContext, t *Team, tracer profiling.TimeTracer) (res keybase1.TeamDetails, err error) {
-	res.KeyGeneration = t.Generation()
-	tracer.Stage("members")
-	// res.Members, err = MembersDetails(mctx.Ctx(), mctx.G(), t)
-	// if err != nil {
-	// 	return res, err
-	// }
+// func details(mctx libkb.MetaContext, t *Team, tracer profiling.TimeTracer) (res keybase1.TeamDetails, err error) {
+// 	res.KeyGeneration = t.Generation()
+// 	tracer.Stage("members")
+// 	// res.Members, err = MembersDetails(mctx.Ctx(), mctx.G(), t)
+// 	// if err != nil {
+// 	// 	return res, err
+// 	// }
 
-	tracer.Stage("invites")
-	res.AnnotatedActiveInvites, err = AnnotateInvitesNoPUKless(mctx, t, &res.Members)
-	if err != nil {
-		return res, err
-	}
+// 	tracer.Stage("invites")
+// 	res.AnnotatedActiveInvites, err = AnnotateInvitesNoPUKless(mctx, t, &res.Members)
+// 	if err != nil {
+// 		return res, err
+// 	}
 
-	membersHideDeletedUsers(mctx.Ctx(), mctx.G(), &res.Members)
-	membersHideInactiveDuplicates(mctx.Ctx(), mctx.G(), &res.Members)
+// 	membersHideDeletedUsers(mctx.Ctx(), mctx.G(), &res.Members)
+// 	membersHideInactiveDuplicates(mctx.Ctx(), mctx.G(), &res.Members)
 
-	res.Settings.Open = t.IsOpen()
-	res.Settings.JoinAs = t.chain().inner.OpenTeamJoinAs
-	res.Name = t.Name().String()
-	return res, nil
-}
+// 	res.Settings.Open = t.IsOpen()
+// 	res.Settings.JoinAs = t.chain().inner.OpenTeamJoinAs
+// 	res.Name = t.Name().String()
+// 	return res, nil
+// }
 
 // List all the admins of ancestor teams.
 // Includes admins of the specified team only if they are also admins of ancestor teams.
@@ -328,11 +291,16 @@ func userVersionsToDetails(mctx libkb.MetaContext, uvs []keybase1.UserVersion, t
 			}
 			fullName = pkg.FullName.FullName
 		}
+		role, err := t.chain().GetUserRole(uv)
+		if err != nil {
+			return nil, err
+		}
 		ret[i] = keybase1.TeamMemberDetails{
 			Uv:       uvs[i],
 			Username: pkg.NormalizedUsername.String(),
 			FullName: fullName,
 			Status:   status,
+			Role:     role,
 		}
 		if status == keybase1.TeamMemberStatus_ACTIVE && t != nil {
 			joinTime, err := t.UserLastJoinTime(uv)
